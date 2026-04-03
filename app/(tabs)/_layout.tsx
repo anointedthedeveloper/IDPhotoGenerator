@@ -2,7 +2,7 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, spacing } from '@/constants/theme';
+import { colors, spacing, borderRadius, shadows } from '@/constants/theme';
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
@@ -14,25 +14,34 @@ export default function TabsLayout() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: {
+          position: 'absolute',
+          left: spacing.lg,
+          right: spacing.lg,
+          bottom: spacing.md,
           height: Platform.select({
-            ios: insets.bottom + 60,
-            android: insets.bottom + 60,
-            default: 70,
+            ios: insets.bottom + 68,
+            android: insets.bottom + 68,
+            default: 76,
           }),
-          paddingTop: spacing.sm,
+          paddingTop: spacing.md,
           paddingBottom: Platform.select({
             ios: insets.bottom + spacing.sm,
             android: insets.bottom + spacing.sm,
             default: spacing.sm,
           }),
-          paddingHorizontal: spacing.lg,
+          paddingHorizontal: spacing.md,
           backgroundColor: colors.surface,
-          borderTopWidth: 1,
-          borderTopColor: colors.border,
+          borderTopWidth: 0,
+          borderRadius: borderRadius.xl,
+          ...shadows.lg,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: '600',
+          marginTop: 2,
+        },
+        tabBarItemStyle: {
+          paddingVertical: 2,
         },
       }}
     >

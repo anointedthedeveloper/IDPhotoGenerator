@@ -24,7 +24,10 @@ export function AppLogo({ size = 'md' }: AppLogoProps) {
           resizeMode="cover"
         />
       </View>
-      <Text style={[styles.title, { fontSize: s.title }]}>IDPhoto AI</Text>
+      <View style={styles.textBlock}>
+        <Text style={[styles.title, { fontSize: s.title }]}>IDPhoto AI</Text>
+        {size !== 'sm' && <Text style={styles.subtitle}>Fast, polished ID photo generation</Text>}
+      </View>
     </View>
   );
 }
@@ -42,5 +45,12 @@ const styles = StyleSheet.create({
     ...typography.heading,
     color: colors.text,
     fontWeight: '700',
+  },
+  textBlock: {
+    gap: 1,
+  },
+  subtitle: {
+    ...typography.caption,
+    color: colors.textTertiary,
   },
 });

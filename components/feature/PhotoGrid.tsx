@@ -53,9 +53,11 @@ const styles = StyleSheet.create({
   card: {
     width: ITEM_WIDTH,
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.xl,
     overflow: 'hidden',
     ...shadows.sm,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
   },
   image: {
     width: '100%',
@@ -65,11 +67,13 @@ const styles = StyleSheet.create({
   info: {
     padding: spacing.sm,
     gap: 2,
+    backgroundColor: colors.surfaceMuted,
   },
   type: {
     ...typography.caption,
     color: colors.text,
     textTransform: 'capitalize',
+    fontWeight: '600',
   },
   ratio: {
     ...typography.caption,
@@ -83,5 +87,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.full,
     padding: 6,
     ...shadows.sm,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
   },
 });

@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, borderRadius, typography, shadows } from '@/constants/theme';
 
 interface UploadSectionProps {
@@ -14,13 +15,22 @@ export function UploadSection({ imageUri, onPress }: UploadSectionProps) {
       {imageUri ? (
         <Image source={{ uri: imageUri }} style={styles.image} contentFit="cover" />
       ) : (
-        <View style={styles.placeholder}>
+        <LinearGradient
+          colors={['#FFFFFF', colors.primaryLight]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.placeholder}
+        >
           <View style={styles.iconContainer}>
-            <Ionicons name="cloud-upload-outline" size={40} color={colors.primary} />
+            <Ionicons name="cloud-upload-outline" size={40} color={colors.primaryDark} />
           </View>
-          <Text style={styles.title}>Upload Your Photo</Text>
-          <Text style={styles.subtitle}>Tap to select a photo from your library</Text>
-        </View>
+          <Text style={styles.title}>Upload your photo</Text>
+          <Text style={styles.subtitle}>Tap to choose a portrait from your library</Text>
+          <View style={styles.helperPill}>
+            <Ionicons name="sparkles-outline" size={14} color={colors.primaryDark} />
+            <Text style={styles.helperText}>Best with a front-facing portrait</Text>
+          </View>
+        </LinearGradient>
       )}
       {imageUri && (
         <View style={styles.changeOverlay}>
@@ -69,6 +79,22 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
   },
+  helperPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  helperText: {
+    ...typography.caption,
+    color: colors.primaryDark,
+    fontWeight: '600',
+  },
   image: {
     flex: 1,
   },
@@ -77,7 +103,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: colors.overlay,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

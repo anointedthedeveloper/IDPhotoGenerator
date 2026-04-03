@@ -29,36 +29,51 @@ export function ResultsGrid({ results }: ResultsGridProps) {
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.header}>
-        <Ionicons name="checkmark-circle" size={20} color={colors.success} />
-        <Text style={styles.headerText}>{results.length} Photo{results.length > 1 ? 's' : ''} Generated</Text>
+        <View style={styles.headerBadge}>
+          <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+          <Text style={styles.headerText}>
+            {results.length} Photo{results.length > 1 ? 's' : ''} Ready
+          </Text>
+        </View>
       </View>
       {results.map((result, index) => {
-        const [imageLoading, setImageLoading] = useState(true);
-        return (
-          <View key={index} style={styles.resultCard}>
-            {imageLoading && (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color={colors.primary} />
-              </View>
-            )}
-            <Image
-              source={{ uri: result.image }}
-              style={styles.resultImage}
-              contentFit="contain"
-              onLoadStart={() => setImageLoading(true)}
-              onLoadEnd={() => setImageLoading(false)}
-            />
-            {result.description && (
-              <View style={styles.descriptionContainer}>
-                <Text style={styles.description} numberOfLines={2}>
-                  {result.description}
-                </Text>
-              </View>
-            )}
-          </View>
-        );
+        return <ResultCard key={`${result.image}-${index}`} result={result} />;
       })}
     </ScrollView>
+  );
+}
+
+function ResultCard({ result }: { result: GeneratePhotoResult }) {
+  const [imageLoading, setImageLoading] = useState(true);
+
+  return (
+    <View style={styles.resultCard}>
+      <View style={styles.previewWrap}>
+        {imageLoading && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color={colors.primary} />
+          </View>
+        )}
+        <Image
+          source={{ uri: result.image }}
+          style={styles.resultImage}
+          contentFit="cover"
+          onLoadStart={() => setImageLoading(true)}
+          onLoadEnd={() => setImageLoading(false)}
+        />
+      </View>
+      {result.description && (
+        <View style={styles.descriptionContainer}>
+          <View style={styles.captionRow}>
+            <Ionicons name="document-text-outline" size={14} color={colors.textTertiary} />
+            <Text style={styles.captionLabel}>Prompt</Text>
+          </View>
+          <Text style={styles.description} numberOfLines={3}>
+            {result.description}
+          </Text>
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -68,17 +83,25 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: spacing.xl,
-    gap: spacing.xl,
+    gap: spacing.lg,
   },
   header: {
+    paddingBottom: spacing.xs,
+  },
+  headerBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    paddingBottom: spacing.md,
+    alignSelf: 'flex-start',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.successLight,
   },
   headerText: {
     ...typography.bodyMedium,
     color: colors.success,
+    fontWeight: '700',
   },
   emptyContainer: {
     flex: 1,
@@ -90,7 +113,7 @@ const styles = StyleSheet.create({
   emptyIconContainer: {
     padding: spacing.xl,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.borderLight,
+    backgroundColor: colors.primaryLight,
   },
   emptyTitle: {
     ...typography.heading,
@@ -103,9 +126,14 @@ const styles = StyleSheet.create({
   },
   resultCard: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.xl,
     overflow: 'hidden',
     ...shadows.md,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    gap: 0,
+  },
+  previewWrap: {
     position: 'relative',
   },
   loadingContainer: {
@@ -126,7 +154,20 @@ const styles = StyleSheet.create({
   },
   descriptionContainer: {
     padding: spacing.lg,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfaceMuted,
+    gap: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+  },
+  captionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  captionLabel: {
+    ...typography.caption,
+    color: colors.textTertiary,
+    fontWeight: '700',
   },
   description: {
     ...typography.caption,

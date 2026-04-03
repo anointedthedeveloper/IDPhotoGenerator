@@ -28,6 +28,7 @@ export function OptionsPanel({
           <View style={styles.labelContainer}>
             <Text style={styles.labelNumber}>1</Text>
             <Text style={styles.label}>Photo Type</Text>
+            <Text style={styles.hint}>Choose the cut of the photo</Text>
           </View>
           <View style={styles.row}>
             <OptionButton
@@ -50,6 +51,7 @@ export function OptionsPanel({
           <View style={styles.labelContainer}>
             <Text style={styles.labelNumber}>2</Text>
             <Text style={styles.label}>Background Color</Text>
+            <Text style={styles.hint}>Pick a compliant background</Text>
           </View>
           <View style={styles.row}>
             <ColorOption
@@ -78,6 +80,7 @@ export function OptionsPanel({
           <View style={styles.labelContainer}>
             <Text style={styles.labelNumber}>3</Text>
             <Text style={styles.label}>Aspect Ratio</Text>
+            <Text style={styles.hint}>Match the required frame</Text>
           </View>
           <View style={styles.row}>
             <OptionButton
@@ -106,6 +109,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
     ...shadows.sm,
   },
   section: {
@@ -115,6 +120,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
+    flexWrap: 'wrap',
   },
   labelNumber: {
     width: 28,
@@ -130,7 +136,13 @@ const styles = StyleSheet.create({
   label: {
     ...typography.bodyMedium,
     color: colors.text,
-    flex: 1,
+  },
+  hint: {
+    ...typography.caption,
+    color: colors.textTertiary,
+    flexBasis: '100%',
+    marginLeft: 40,
+    marginTop: -spacing.xs,
   },
   row: {
     flexDirection: 'row',
