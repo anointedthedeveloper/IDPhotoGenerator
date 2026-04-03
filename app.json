@@ -7,6 +7,11 @@
     "icon": "./assets/logo.png",
     "scheme": "onspaceapp",
     "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#4F7CFF"
+    },
     "newArchEnabled": true,
     "description": "Transform any photo into a professional ID photo with AI. Supports passport, visa, and ID card formats. Developed by anointedthedeveloper, powered by Anobyte.",
     "keywords": [
@@ -37,6 +42,12 @@
       },
       "edgeToEdgeEnabled": true,
       "softwareKeyboardLayoutMode": "pan",
+      "permissions": [
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.INTERNET"
+      ],
       "package": "online.anobyte.idphoto",
       "versionCode": 1
     },
