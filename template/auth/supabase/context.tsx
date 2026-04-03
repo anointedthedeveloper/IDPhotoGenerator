@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
 import { AuthUser } from '../types';
 import { authService } from './service';
 
@@ -8,51 +8,102 @@ interface AuthContextState {
   loading: boolean;
   operationLoading: boolean;
   initialized: boolean;
+}
+
+interface AuthContextActions {
   setOperationLoading: (loading: boolean) => void;
 }
 
-const AuthContext = createContext<AuthContextState | undefined>(undefined);
+type AuthContextType = AuthContextState & AuthContextActions;
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<Omit<AuthContextState, 'setOperationLoading'>>({
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
+export function AuthProvider({ children }: AuthProviderProps) {
+  const [state, setState] = useState<AuthContextState>({
     user: null,
     loading: true,
     operationLoading: false,
     initialized: false,
   });
 
-  const setOperationLoading = (operationLoading: boolean) =>
-    setState(s => ({ ...s, operationLoading }));
+  const updateState = (updates: Partial<AuthContextState>) => {
+    setState(prevState => {
+      const newState = { ...prevState, ...updates };
+      return newState;
+    });
+  };
+
+  const setOperationLoading = (loading: boolean) => {
+    updateState({ operationLoading: loading });
+  };
 
   useEffect(() => {
-    let mounted = true;
-    let sub: any;
+    let isMounted = true;
+    let authSubscription: any = null;
 
-    authService.getCurrentUser().then(user => {
-      if (mounted) setState(s => ({ ...s, user, loading: false, initialized: true }));
-    }).catch(() => {
-      if (mounted) setState(s => ({ ...s, loading: false, initialized: true }));
-    });
+    const initializeAuth = async () => {
+      
+      try {
+        const currentUser = await authService.getCurrentUser();
+        
+        if (isMounted) {
+          updateState({ 
+            user: currentUser, 
+            loading: false, 
+            initialized: true 
+          });
+        }
 
-    sub = authService.onAuthStateChange(user => {
-      if (mounted) setState(s => ({ ...s, user }));
-    });
+        authSubscription = authService.onAuthStateChange((authUser) => {
+          if (isMounted) {
+            updateState({ user: authUser });
+          }
+        });
+
+      } catch (error) {
+        console.warn('[Template:AuthProvider] Auth initialization failed:', error);
+        if (isMounted) {
+          updateState({ 
+            user: null, 
+            loading: false, 
+            initialized: true 
+          });
+        }
+      }
+    };
+
+    initializeAuth();
 
     return () => {
-      mounted = false;
-      sub?.unsubscribe?.();
+      isMounted = false;
+      if (authSubscription?.unsubscribe) {
+        authSubscription.unsubscribe();
+      }
     };
-  }, []);
+  }, []); // Empty dependency array ensures single execution
+  const contextValue: AuthContextType = {
+    ...state,
+    setOperationLoading,
+  };
 
   return (
-    <AuthContext.Provider value={{ ...state, setOperationLoading }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );
 }
 
-export function useAuthContext() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuthContext must be used within AuthProvider');
-  return ctx;
+// useAuthContext Hook - internal use
+export function useAuthContext(): AuthContextType {
+  const context = useContext(AuthContext);
+  
+  if (context === undefined) {
+    throw new Error('useAuthContext must be used within an AuthProvider');
+  }
+  
+  return context;
 }
