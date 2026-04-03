@@ -8,7 +8,7 @@ export function AppFooter() {
   };
 
   const openAnobyte = () => {
-    Linking.openURL('https://anobyte.online');
+    Linking.openURL('mailto:anointedthedeveloper@gmail.com');
   };
 
   return (

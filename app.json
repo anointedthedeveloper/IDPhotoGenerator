@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "IDPhoto - AI ID Generator",
+    "name": "IDPhoto AI",
     "slug": "idphoto-ai-generator",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
     "scheme": "onspaceapp",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "description": "Transform any photo into a professional ID photo with AI. Supports passport, visa, and ID card formats. Developed by anointedthedeveloper, powered by Anobyte.",
     "keywords": [
@@ -36,6 +36,7 @@
         "backgroundColor": "#3B82F6"
       },
       "edgeToEdgeEnabled": true,
+      "softwareKeyboardLayoutMode": "pan",
       "package": "online.anobyte.idphoto",
       "versionCode": 1
     },
@@ -83,6 +84,10 @@
         "name": "Anobyte",
         "website": "https://anobyte.online",
         "email": "hello@anobyte.online"
+      },
+      "router": {},
+      "eas": {
+        "projectId": "1afedfb5-0ffa-42a4-b7ba-a75ff15a95c9"
       }
     }
   }

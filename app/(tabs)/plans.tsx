@@ -105,7 +105,7 @@ export default function PlansScreen() {
     if (plan.id === 'free') {
       showAlert('Current Plan', 'You are already on the Free plan. Upgrade to unlock more features.');
     } else if (plan.id === 'business') {
-      Linking.openURL('mailto:hello@anobyte.online?subject=IDPhoto Business Plan Inquiry');
+      Linking.openURL('mailto:anointedthedeveloper@gmail.com?subject=IDPhoto Business Plan Inquiry');
     } else {
       showAlert(
         'Coming Soon',
@@ -241,9 +241,9 @@ export default function PlansScreen() {
           Questions? Contact us at{' '}
           <Text
             style={styles.contactLink}
-            onPress={() => Linking.openURL('mailto:hello@anobyte.online')}
+            onPress={() => Linking.openURL('mailto:anointedthedeveloper@gmail.com')}
           >
-            hello@anobyte.online
+            anointedthedeveloper@gmail.com
           </Text>
         </Text>
       </View>
