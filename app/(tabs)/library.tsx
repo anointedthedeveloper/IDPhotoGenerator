@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,13 +12,13 @@ import { AppFooter } from '@/components/ui/AppFooter';
 export default function LibraryScreen() {
   const insets = useSafeAreaInsets();
   const { showAlert } = useAlert();
-  const { photos, loading, error, deletePhoto, refreshPhotos } = usePhotoLibrary();
+  const { photos, loading, error, deletePhoto } = usePhotoLibrary();
 
   useEffect(() => {
     if (error) {
       showAlert('Error', error);
     }
-  }, [error]);
+  }, [error, showAlert]);
 
   const handleDeletePhoto = async (id: string) => {
     const { error: deleteError } = await deletePhoto(id);

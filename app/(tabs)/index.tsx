@@ -48,7 +48,7 @@ export default function HomeScreen() {
       showAlert('Error', error);
       clearError();
     }
-  }, [error]);
+  }, [error, showAlert, clearError]);
 
   const isTablet = Math.max(1, dimensions.width) >= 768;
   const isLandscape = Math.max(1, dimensions.width) > Math.max(1, dimensions.height);
