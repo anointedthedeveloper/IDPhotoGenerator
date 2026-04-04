@@ -47,80 +47,141 @@ Deno.serve(async (req) => {
       : 'light blue background';
     const frameDesc = photoType === 'full'
       ? 'full body standing straight, head to toe'
-      : 'half body portrait, head and shoulders, waist up';
+      : 'half body portrait, head and shoulders';
 
-    const prompt = `professional passport ID photo, ${frameDesc}, formal business suit, ${bgDesc}, soft studio lighting, sharp focus, centered composition, looking directly at camera, photorealistic, high quality, 4k`;
-    const negativePrompt = 'cartoon, anime, blurry, dark background, casual clothes, sunglasses, hat, watermark, text, low quality, deformed face, multiple people';
+    const prompt = `professional passport ID photo of the same person, ${frameDesc}, formal business suit, ${bgDesc}, soft studio lighting, sharp focus, centered, looking at camera, photorealistic, high quality`;
+    const negativePrompt = 'different person, cartoon, blurry, dark background, casual clothes, sunglasses, hat, watermark, text, low quality, deformed';
 
-    console.log('Starting generation, photoType:', photoType, 'bg:', backgroundColor);
+    // Extract base64
+    const base64Match = image.match(/^data:image\/(\w+);base64,(.+)$/);
+    if (!base64Match) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid image format' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-    // Use flux-schnell — fast, free, and working on HF
-    const models = [
-      'black-forest-labs/FLUX.1-schnell',
-      'stabilityai/stable-diffusion-3-medium-diffusers',
-      'stabilityai/stable-diffusion-xl-base-1.0',
+    const imageBytes = base64ToUint8Array(base64Match[2]);
+    const imageBlob = new Blob([imageBytes], { type: `image/${base64Match[1]}` });
+    console.log('Image size:', imageBytes.length, 'bytes');
+
+    // Try img2img models via new HF router
+    const img2imgModels = [
+      'stabilityai/stable-diffusion-xl-refiner-1.0',
+      'timbrooks/instruct-pix2pix',
     ];
 
     let finalBytes: Uint8Array | null = null;
     let outputMime = 'image/jpeg';
 
-    for (const model of models) {
-      console.log('Trying model:', model);
-
+    for (const model of img2imgModels) {
+      console.log('Trying img2img model:', model);
       try {
+        const form = new FormData();
+        form.append('inputs', imageBlob, 'photo.jpg');
+        form.append('parameters', JSON.stringify({
+          prompt,
+          negative_prompt: negativePrompt,
+          strength: 0.55,
+          guidance_scale: 7.5,
+          num_inference_steps: 20,
+          image_guidance_scale: 1.5,
+        }));
+
         const response = await fetch(
           `https://router.huggingface.co/hf-inference/models/${model}`,
           {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${apiKey}`,
-              'Content-Type': 'application/json',
               'x-wait-for-model': 'true',
             },
-            body: JSON.stringify({
-              inputs: prompt,
-              parameters: {
-                negative_prompt: negativePrompt,
-                num_inference_steps: 20,
-                guidance_scale: 7.5,
-                width: 512,
-                height: 680,
-              },
-            }),
+            body: form,
           }
         );
 
-        console.log('Model', model, 'status:', response.status);
+        console.log(model, 'status:', response.status);
 
         if (!response.ok) {
-          const errText = await response.text();
-          console.log('Model failed:', errText.substring(0, 150));
+          const err = await response.text();
+          console.log(model, 'failed:', err.substring(0, 200));
           continue;
         }
 
         const contentType = response.headers.get('content-type') ?? '';
         const bytes = new Uint8Array(await response.arrayBuffer());
-        const preview = new TextDecoder().decode(bytes.slice(0, 100));
+        const preview = new TextDecoder().decode(bytes.slice(0, 50));
 
         if (preview.trimStart().startsWith('{')) {
-          console.log('Got JSON instead of image:', preview);
+          console.log(model, 'returned JSON:', preview);
           continue;
         }
 
         finalBytes = bytes;
         outputMime = contentType.includes('png') ? 'image/png' : 'image/jpeg';
-        console.log('Success with model:', model, 'size:', bytes.length);
+        console.log('img2img success:', model, bytes.length, 'bytes');
         break;
 
-      } catch (modelErr) {
-        console.log('Model error:', modelErr.message);
+      } catch (e) {
+        console.log(model, 'error:', e.message);
         continue;
+      }
+    }
+
+    // Fallback to text2img if img2img fails
+    if (!finalBytes) {
+      console.log('img2img failed, falling back to text2img...');
+      const t2iModels = [
+        'black-forest-labs/FLUX.1-schnell',
+        'stabilityai/stable-diffusion-xl-base-1.0',
+      ];
+
+      for (const model of t2iModels) {
+        console.log('Trying text2img:', model);
+        try {
+          const response = await fetch(
+            `https://router.huggingface.co/hf-inference/models/${model}`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+                'x-wait-for-model': 'true',
+              },
+              body: JSON.stringify({
+                inputs: prompt,
+                parameters: {
+                  negative_prompt: negativePrompt,
+                  num_inference_steps: 20,
+                  guidance_scale: 7.5,
+                  width: 512,
+                  height: 680,
+                },
+              }),
+            }
+          );
+
+          console.log(model, 'status:', response.status);
+          if (!response.ok) { const e = await response.text(); console.log(model, 'failed:', e.substring(0, 150)); continue; }
+
+          const bytes = new Uint8Array(await response.arrayBuffer());
+          const preview = new TextDecoder().decode(bytes.slice(0, 50));
+          if (preview.trimStart().startsWith('{')) { console.log(model, 'JSON:', preview); continue; }
+
+          finalBytes = bytes;
+          outputMime = response.headers.get('content-type')?.includes('png') ? 'image/png' : 'image/jpeg';
+          console.log('text2img success:', model);
+          break;
+        } catch (e) {
+          console.log(model, 'error:', e.message);
+          continue;
+        }
       }
     }
 
     if (!finalBytes) {
       return new Response(
-        JSON.stringify({ error: 'All models failed. Please try again in a moment — models may be loading.' }),
+        JSON.stringify({ error: 'All models failed. Models may be loading — please try again in 30 seconds.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
