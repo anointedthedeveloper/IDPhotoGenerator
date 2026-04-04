@@ -1,7 +1,19 @@
-import { View, TouchableOpacity, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet, View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, typography, shadows } from '@/constants/theme';
 import { BackgroundColor } from '@/services/imageService';
+import { colors, borderRadius, typography, spacing } from '@/constants/theme';
+
+const COLOR_MAP: Record<BackgroundColor, string> = {
+  white: '#FFFFFF',
+  gray: '#C8CDD6',
+  blue: '#93BBFC',
+};
+
+const LABEL_MAP: Record<BackgroundColor, string> = {
+  white: 'White',
+  gray: 'Gray',
+  blue: 'Blue',
+};
 
 interface ColorOptionProps {
   color: BackgroundColor;
@@ -9,80 +21,58 @@ interface ColorOptionProps {
   onPress: () => void;
 }
 
-const colorMap: Record<BackgroundColor, string> = {
-  white: colors.bgWhite,
-  gray: colors.bgGray,
-  blue: colors.bgBlue,
-};
-
-const colorLabels: Record<BackgroundColor, string> = {
-  white: 'White',
-  gray: 'Gray',
-  blue: 'Blue',
-};
-
 export function ColorOption({ color, selected, onPress }: ColorOptionProps) {
   return (
-    <TouchableOpacity
-      style={[styles.container, selected && styles.containerSelected]}
+    <Pressable
+      style={({ pressed }) => [styles.wrapper, selected && styles.wrapperSelected, pressed && styles.pressed]}
       onPress={onPress}
-      activeOpacity={0.8}
     >
-      <View style={[styles.colorCircle, { backgroundColor: colorMap[color] }]}>
+      <View style={[styles.swatch, { backgroundColor: COLOR_MAP[color] }]}>
         {selected && (
-          <View style={styles.checkmark}>
-            <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
-          </View>
+          <Ionicons name="checkmark" size={14} color={color === 'white' ? colors.primary : '#fff'} />
         )}
       </View>
-      <Text style={[styles.label, selected && styles.labelSelected]}>
-        {colorLabels[color]}
+      <Text style={[styles.colorLabel, selected && styles.colorLabelSelected]}>
+        {LABEL_MAP[color]}
       </Text>
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  wrapper: {
     flex: 1,
-    padding: spacing.md,
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xs,
     borderRadius: borderRadius.md,
     borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
+    borderColor: 'transparent',
   },
-  containerSelected: {
+  wrapperSelected: {
     borderColor: colors.primary,
     backgroundColor: colors.primaryLight,
-    ...shadows.sm,
   },
-  colorCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 2,
+  pressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.96 }],
+  },
+  swatch: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.full,
+    borderWidth: 1.5,
     borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
   },
-  checkmark: {
-    position: 'absolute',
-    bottom: -4,
-    right: -4,
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-  },
-  label: {
+  colorLabel: {
     ...typography.caption,
     color: colors.textSecondary,
-    fontWeight: '500',
-  },
-  labelSelected: {
-    color: colors.primary,
     fontWeight: '600',
+  },
+  colorLabelSelected: {
+    color: colors.primaryDark,
   },
 });

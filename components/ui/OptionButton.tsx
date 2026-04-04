@@ -1,60 +1,63 @@
-import { Text, TouchableOpacity, StyleSheet, View } from 'react-native';
-import { colors, spacing, borderRadius, typography, shadows } from '@/constants/theme';
+import { Text, Pressable, StyleSheet, View } from 'react-native';
+import { colors, spacing, borderRadius, typography } from '@/constants/theme';
 
 interface OptionButtonProps {
   label: string;
   selected: boolean;
   onPress: () => void;
+  icon?: string;
 }
 
 export function OptionButton({ label, selected, onPress }: OptionButtonProps) {
   return (
-    <TouchableOpacity
-      style={[styles.button, selected && styles.buttonSelected]}
+    <Pressable
+      style={({ pressed }) => [
+        styles.button,
+        selected && styles.selected,
+        pressed && styles.pressed,
+      ]}
       onPress={onPress}
-      activeOpacity={0.8}
     >
-      {selected && <View style={styles.selectedIndicator} />}
-      <Text style={[styles.text, selected && styles.textSelected]}>
-        {label}
-      </Text>
-    </TouchableOpacity>
+      {selected && <View style={styles.activeDot} />}
+      <Text style={[styles.label, selected && styles.selectedLabel]}>{label}</Text>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   button: {
     flex: 1,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md + 2,
     borderRadius: borderRadius.md,
     borderWidth: 1.5,
     borderColor: colors.border,
-    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
-    overflow: 'hidden',
+    backgroundColor: colors.surface,
+    flexDirection: 'row',
+    gap: spacing.xs,
   },
-  buttonSelected: {
+  selected: {
     borderColor: colors.primary,
     backgroundColor: colors.primaryLight,
-    ...shadows.sm,
   },
-  selectedIndicator: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 3,
+  pressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.97 }],
+  },
+  activeDot: {
+    width: 7,
+    height: 7,
+    borderRadius: borderRadius.full,
     backgroundColor: colors.primary,
   },
-  text: {
+  label: {
     ...typography.bodyMedium,
     color: colors.textSecondary,
+    fontSize: 14,
   },
-  textSelected: {
-    color: colors.primary,
-    fontWeight: '600',
+  selectedLabel: {
+    color: colors.primaryDark,
+    fontWeight: '700',
   },
 });

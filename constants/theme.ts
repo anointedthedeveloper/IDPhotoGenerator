@@ -1,24 +1,47 @@
 export const colors = {
-  background: '#F9FAFB',
+  // Core backgrounds
+  background: '#F0F4FF',
+  backgroundAlt: '#E8EEFF',
   surface: '#FFFFFF',
-  surfaceHover: '#F3F4F6',
-  border: '#E5E7EB',
-  borderLight: '#F3F4F6',
-  borderActive: '#3B82F6',
-  primary: '#3B82F6',
-  primaryLight: '#DBEAFE',
-  primaryDark: '#2563EB',
-  text: '#111827',
-  textSecondary: '#6B7280',
-  textTertiary: '#9CA3AF',
-  success: '#10B981',
-  successLight: '#D1FAE5',
-  error: '#EF4444',
-  errorLight: '#FEE2E2',
-  overlay: 'rgba(0, 0, 0, 0.5)',
-  shadow: 'rgba(0, 0, 0, 0.08)',
-  
-  // Background colors for ID photos
+  surfaceElevated: '#FAFBFF',
+  surfaceHover: '#F3F6FF',
+
+  // Borders
+  border: '#DDE3F0',
+  borderLight: '#EBF0FB',
+  borderActive: '#4F6EF5',
+
+  // Brand - deep indigo-blue
+  primary: '#4F6EF5',
+  primaryLight: '#E8EDFF',
+  primaryMid: '#C7D2FF',
+  primaryDark: '#3451D1',
+  primaryGradientStart: '#5B7BFF',
+  primaryGradientEnd: '#3451D1',
+
+  // Accent - warm violet
+  accent: '#7C5CFC',
+  accentLight: '#EDE9FF',
+
+  // Text
+  text: '#0F1729',
+  textSecondary: '#5C6A8A',
+  textTertiary: '#94A3BB',
+
+  // Semantic
+  success: '#0EA874',
+  successLight: '#D0F5E8',
+  warning: '#F59E0B',
+  warningLight: '#FEF3C7',
+  error: '#E53E3E',
+  errorLight: '#FED7D7',
+
+  // Utility
+  overlay: 'rgba(15, 23, 41, 0.55)',
+  shadow: 'rgba(79, 110, 245, 0.12)',
+  shadowDark: 'rgba(15, 23, 41, 0.14)',
+
+  // ID photo backgrounds
   bgWhite: '#FFFFFF',
   bgGray: '#E5E7EB',
   bgBlue: '#DBEAFE',
@@ -38,55 +61,64 @@ export const borderRadius = {
   sm: 8,
   md: 12,
   lg: 16,
-  xl: 20,
+  xl: 24,
+  xxl: 32,
   full: 9999,
 };
 
 export const shadows = {
   sm: {
-    shadowColor: '#000',
+    shadowColor: '#4F6EF5',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
   },
   md: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowColor: '#0F1729',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
   },
   lg: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
+    shadowColor: '#0F1729',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.14,
+    shadowRadius: 24,
+    elevation: 8,
+  },
+  brand: {
+    shadowColor: '#4F6EF5',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
     shadowRadius: 16,
-    elevation: 5,
+    elevation: 8,
   },
 };
 
 export const typography = {
   title: {
     fontSize: 28,
-    fontWeight: '700' as const,
+    fontWeight: '800' as const,
     lineHeight: 36,
-    letterSpacing: -0.5,
+    letterSpacing: -0.6,
   },
   heading: {
     fontSize: 18,
-    fontWeight: '600' as const,
+    fontWeight: '700' as const,
     lineHeight: 24,
+    letterSpacing: -0.2,
   },
   body: {
     fontSize: 15,
     fontWeight: '400' as const,
-    lineHeight: 22,
+    lineHeight: 23,
   },
   bodyMedium: {
     fontSize: 15,
     fontWeight: '500' as const,
-    lineHeight: 22,
+    lineHeight: 23,
   },
   caption: {
     fontSize: 13,
@@ -94,15 +126,16 @@ export const typography = {
     lineHeight: 18,
   },
   label: {
-    fontSize: 12,
-    fontWeight: '600' as const,
+    fontSize: 11,
+    fontWeight: '700' as const,
     lineHeight: 16,
     textTransform: 'uppercase' as const,
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
   button: {
     fontSize: 16,
-    fontWeight: '600' as const,
+    fontWeight: '700' as const,
     lineHeight: 24,
+    letterSpacing: 0.1,
   },
 };

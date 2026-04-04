@@ -1,143 +1,103 @@
-import { createContext, ReactNode, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { getSupabaseClient } from '@/template';
 
-// Virtual user ID for anonymous usage
-const VIRTUAL_USER_ID = '00000000-0000-0000-0000-000000000000';
-
-export interface IDPhoto {
+export interface Photo {
   id: string;
-  user_id: string;
   original_image_url: string;
   generated_image_url: string;
-  photo_type: 'full' | 'half';
-  background_color: 'white' | 'gray' | 'blue';
-  aspect_ratio: '4:3' | '3:4';
+  photo_type: string;
+  background_color: string;
+  aspect_ratio: string;
   created_at: string;
 }
 
-export interface PhotoLibraryContextType {
-  photos: IDPhoto[];
+interface AddPhotoParams {
+  original_image_url: string;
+  generated_image_url: string;
+  photo_type: string;
+  background_color: string;
+  aspect_ratio: string;
+}
+
+interface PhotoLibraryContextType {
+  photos: Photo[];
   loading: boolean;
   error: string | null;
-  addPhoto: (photo: Omit<IDPhoto, 'id' | 'user_id' | 'created_at'>) => Promise<{ data: IDPhoto | null; error: string | null }>;
+  addPhoto: (params: AddPhotoParams) => Promise<{ data: Photo | null; error: string | null }>;
   deletePhoto: (id: string) => Promise<{ error: string | null }>;
   refreshPhotos: () => Promise<void>;
 }
 
-export const PhotoLibraryContext = createContext<PhotoLibraryContextType | undefined>(undefined);
+const PhotoLibraryContext = createContext<PhotoLibraryContextType | null>(null);
 
 export function PhotoLibraryProvider({ children }: { children: ReactNode }) {
-  const [photos, setPhotos] = useState<IDPhoto[]>([]);
+  const [photos, setPhotos] = useState<Photo[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const supabase = getSupabaseClient();
-
-  const loadPhotos = async () => {
+  const refreshPhotos = useCallback(async () => {
     setLoading(true);
     setError(null);
-
     try {
+      const supabase = getSupabaseClient();
       const { data, error: fetchError } = await supabase
-        .from('id_photos')
+        .from('photos')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (fetchError) {
         setError(fetchError.message);
       } else {
-        setPhotos(data || []);
+        setPhotos(data ?? []);
       }
     } catch (err) {
-      setError((err as Error).message || 'Failed to load photos');
+      setError((err as Error).message);
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    loadPhotos();
   }, []);
 
-  const addPhoto = async (
-    photo: Omit<IDPhoto, 'id' | 'user_id' | 'created_at'>
-  ): Promise<{ data: IDPhoto | null; error: string | null }> => {
+  const addPhoto = useCallback(async (params: AddPhotoParams) => {
     try {
+      const supabase = getSupabaseClient();
       const { data, error: insertError } = await supabase
-        .from('id_photos')
-        .insert({
-          user_id: VIRTUAL_USER_ID,
-          original_image_url: photo.original_image_url,
-          generated_image_url: photo.generated_image_url,
-          photo_type: photo.photo_type,
-          background_color: photo.background_color,
-          aspect_ratio: photo.aspect_ratio,
-        })
+        .from('photos')
+        .insert(params)
         .select()
         .single();
 
-      if (insertError) {
-        return { data: null, error: insertError.message };
-      }
+      if (insertError) return { data: null, error: insertError.message };
 
       setPhotos(prev => [data, ...prev]);
       return { data, error: null };
     } catch (err) {
-      return { data: null, error: (err as Error).message || 'Failed to add photo' };
+      return { data: null, error: (err as Error).message };
     }
-  };
+  }, []);
 
-  const deletePhoto = async (id: string): Promise<{ error: string | null }> => {
+  const deletePhoto = useCallback(async (id: string) => {
     try {
-      const photo = photos.find(p => p.id === id);
-      if (!photo) {
-        return { error: 'Photo not found' };
-      }
+      const supabase = getSupabaseClient();
+      const { error: deleteError } = await supabase.from('photos').delete().eq('id', id);
 
-      // Delete from storage
-      const originalPath = photo.original_image_url.split('/id-photos/')[1];
-      const generatedPath = photo.generated_image_url.split('/id-photos/')[1];
-
-      if (originalPath) {
-        await supabase.storage.from('id-photos').remove([originalPath]);
-      }
-      if (generatedPath) {
-        await supabase.storage.from('id-photos').remove([generatedPath]);
-      }
-
-      // Delete from database
-      const { error: deleteError } = await supabase
-        .from('id_photos')
-        .delete()
-        .eq('id', id);
-
-      if (deleteError) {
-        return { error: deleteError.message };
-      }
+      if (deleteError) return { error: deleteError.message };
 
       setPhotos(prev => prev.filter(p => p.id !== id));
       return { error: null };
     } catch (err) {
-      return { error: (err as Error).message || 'Failed to delete photo' };
+      return { error: (err as Error).message };
     }
-  };
-
-  const refreshPhotos = async () => {
-    await loadPhotos();
-  };
+  }, []);
 
   return (
-    <PhotoLibraryContext.Provider
-      value={{
-        photos,
-        loading,
-        error,
-        addPhoto,
-        deletePhoto,
-        refreshPhotos,
-      }}
-    >
+    <PhotoLibraryContext.Provider value={{ photos, loading, error, addPhoto, deletePhoto, refreshPhotos }}>
       {children}
     </PhotoLibraryContext.Provider>
   );
+}
+
+export function usePhotoLibraryContext() {
+  const ctx = useContext(PhotoLibraryContext);
+  if (!ctx) throw new Error('usePhotoLibraryContext must be used within PhotoLibraryProvider');
+  return ctx;
 }
