@@ -1,12 +1,18 @@
-import { TouchableOpacity, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BackgroundColor } from '@/services/imageService';
-import { colors, borderRadius } from '@/constants/theme';
+import { colors, borderRadius, typography, spacing } from '@/constants/theme';
 
 const COLOR_MAP: Record<BackgroundColor, string> = {
   white: '#FFFFFF',
-  gray: '#E5E7EB',
-  blue: '#DBEAFE',
+  gray: '#C8CDD6',
+  blue: '#93BBFC',
+};
+
+const LABEL_MAP: Record<BackgroundColor, string> = {
+  white: 'White',
+  gray: 'Gray',
+  blue: 'Blue',
 };
 
 interface ColorOptionProps {
@@ -17,35 +23,56 @@ interface ColorOptionProps {
 
 export function ColorOption({ color, selected, onPress }: ColorOptionProps) {
   return (
-    <TouchableOpacity
-      style={[styles.outer, selected && styles.outerSelected]}
+    <Pressable
+      style={({ pressed }) => [styles.wrapper, selected && styles.wrapperSelected, pressed && styles.pressed]}
       onPress={onPress}
-      activeOpacity={0.8}
     >
       <View style={[styles.swatch, { backgroundColor: COLOR_MAP[color] }]}>
-        {selected && <Ionicons name="checkmark" size={16} color={colors.primary} />}
+        {selected && (
+          <Ionicons name="checkmark" size={14} color={color === 'white' ? colors.primary : '#fff'} />
+        )}
       </View>
-    </TouchableOpacity>
+      <Text style={[styles.colorLabel, selected && styles.colorLabelSelected]}>
+        {LABEL_MAP[color]}
+      </Text>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  outer: {
-    padding: 3,
-    borderRadius: borderRadius.full,
-    borderWidth: 2,
+  wrapper: {
+    flex: 1,
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xs,
+    borderRadius: borderRadius.md,
+    borderWidth: 1.5,
     borderColor: 'transparent',
   },
-  outerSelected: {
+  wrapperSelected: {
     borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
+  },
+  pressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.96 }],
   },
   swatch: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
     borderRadius: borderRadius.full,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  colorLabel: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  colorLabelSelected: {
+    color: colors.primaryDark,
   },
 });

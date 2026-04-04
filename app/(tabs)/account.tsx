@@ -27,41 +27,87 @@ export default function AccountScreen() {
     setUser(null);
   };
 
+  const avatarLetter = (user?.email?.[0] ?? 'U').toUpperCase();
+
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#F9FBFF', colors.background]} style={StyleSheet.absoluteFillObject} />
+      <LinearGradient colors={[colors.background, '#E4ECFF']} style={StyleSheet.absoluteFillObject} />
+
       <View style={[styles.header, { paddingTop: insets.top + spacing.lg }]}>
         <View style={styles.headerRow}>
-          <View style={styles.headerIcon}><Ionicons name="person-circle" size={20} color={colors.primaryDark} /></View>
-          <Text style={styles.title}>Account</Text>
+          <LinearGradient
+            colors={[colors.primary, colors.accent]}
+            style={styles.headerIconGrad}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Ionicons name="person" size={18} color="#fff" />
+          </LinearGradient>
+          <View>
+            <Text style={styles.kicker}>My Profile</Text>
+            <Text style={styles.title}>Account</Text>
+          </View>
         </View>
       </View>
 
       {loading ? (
         <View style={styles.center}><ActivityIndicator size="large" color={colors.primary} /></View>
       ) : user ? (
-        <ScrollView contentContainerStyle={styles.content}>
-          <View style={styles.profileCard}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{(user.email?.[0] ?? 'U').toUpperCase()}</Text>
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          {/* Profile Card */}
+          <LinearGradient
+            colors={[colors.primaryGradientStart, colors.accent]}
+            style={styles.profileCard}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <View style={styles.avatarWrap}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{avatarLetter}</Text>
+              </View>
+              <View style={styles.avatarBadge}>
+                <Ionicons name="checkmark" size={10} color="#fff" />
+              </View>
             </View>
             <View style={styles.profileInfo}>
               <Text style={styles.profileName}>{user.username || 'User'}</Text>
               <Text style={styles.profileEmail}>{user.email}</Text>
             </View>
-          </View>
+            <View style={styles.planChip}>
+              <Text style={styles.planChipText}>Free Plan</Text>
+            </View>
+          </LinearGradient>
 
+          {/* Upgrade Banner */}
+          <TouchableOpacity
+            style={styles.upgradeBanner}
+            onPress={() => router.push('/(tabs)/plans')}
+            activeOpacity={0.88}
+          >
+            <View style={styles.upgradeLeft}>
+              <Ionicons name="sparkles" size={20} color={colors.primary} />
+              <View>
+                <Text style={styles.upgradeTitle}>Upgrade to Pro</Text>
+                <Text style={styles.upgradeSubtitle}>Unlock unlimited photos + HD quality</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+          </TouchableOpacity>
+
+          {/* Menu */}
           <View style={styles.section}>
             {[
-              { icon: 'sparkles-outline', label: 'Upgrade to Pro', onPress: () => router.push('/(tabs)/plans'), highlight: true },
-              { icon: 'images-outline', label: 'My Library', onPress: () => router.push('/(tabs)/library') },
-              { icon: 'mail-outline', label: 'Contact Support', onPress: () => {} },
-            ].map(({ icon, label, onPress, highlight }) => (
+              { icon: 'images-outline' as const, label: 'My Library', sub: 'View your generated photos', onPress: () => router.push('/(tabs)/library') },
+              { icon: 'mail-outline' as const, label: 'Contact Support', sub: 'Get help from our team', onPress: () => {} },
+            ].map(({ icon, label, sub, onPress }) => (
               <TouchableOpacity key={label} style={styles.menuItem} onPress={onPress} activeOpacity={0.7}>
-                <View style={[styles.menuIcon, highlight && styles.menuIconHighlight]}>
-                  <Ionicons name={icon as any} size={18} color={highlight ? colors.primary : colors.textSecondary} />
+                <View style={styles.menuIcon}>
+                  <Ionicons name={icon} size={18} color={colors.primary} />
                 </View>
-                <Text style={[styles.menuLabel, highlight && styles.menuLabelHighlight]}>{label}</Text>
+                <View style={styles.menuText}>
+                  <Text style={styles.menuLabel}>{label}</Text>
+                  <Text style={styles.menuSub}>{sub}</Text>
+                </View>
                 <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
               </TouchableOpacity>
             ))}
@@ -79,11 +125,25 @@ export default function AccountScreen() {
       ) : (
         <View style={styles.guestContainer}>
           <View style={styles.guestCard}>
-            <View style={styles.guestIcon}><Ionicons name="person-outline" size={48} color={colors.primary} /></View>
+            <LinearGradient
+              colors={[colors.primaryLight, colors.accentLight]}
+              style={styles.guestIcon}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Ionicons name="person-outline" size={44} color={colors.primary} />
+            </LinearGradient>
             <Text style={styles.guestTitle}>Sign in to your account</Text>
             <Text style={styles.guestSubtitle}>Save your photos, sync across devices, and unlock Pro features.</Text>
             <TouchableOpacity style={styles.signInBtn} onPress={() => router.push('/auth/login')} activeOpacity={0.85}>
-              <Text style={styles.signInText}>Sign In</Text>
+              <LinearGradient
+                colors={[colors.primaryGradientStart, colors.primaryGradientEnd]}
+                style={styles.signInGrad}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Text style={styles.signInText}>Sign In</Text>
+              </LinearGradient>
             </TouchableOpacity>
             <TouchableOpacity style={styles.registerBtn} onPress={() => router.push('/auth/register')} activeOpacity={0.85}>
               <Text style={styles.registerText}>Create Account</Text>
@@ -96,34 +156,151 @@ export default function AccountScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  header: { paddingHorizontal: spacing.xl, paddingVertical: spacing.xl, gap: spacing.sm },
-  headerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  headerIcon: { width: 36, height: 36, borderRadius: borderRadius.full, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryLight },
-  title: { fontSize: 24, fontWeight: '800', color: colors.text },
+  container: { flex: 1 },
+  header: { paddingHorizontal: spacing.xl, paddingBottom: spacing.xl, gap: spacing.sm },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  headerIconGrad: { width: 44, height: 44, borderRadius: borderRadius.md, alignItems: 'center', justifyContent: 'center' },
+  kicker: { ...typography.label, color: colors.primary },
+  title: { fontSize: 22, fontWeight: '800', color: colors.text, letterSpacing: -0.4 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  content: { padding: spacing.xl, gap: spacing.xl },
-  profileCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg, backgroundColor: colors.surface, borderRadius: borderRadius.xl, padding: spacing.xl, ...shadows.sm, borderWidth: 1, borderColor: colors.borderLight },
-  avatar: { width: 56, height: 56, borderRadius: borderRadius.full, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 24, fontWeight: '800', color: colors.surface },
-  profileInfo: { flex: 1, gap: 4 },
-  profileName: { ...typography.bodyMedium, color: colors.text, fontWeight: '700' },
-  profileEmail: { ...typography.caption, color: colors.textSecondary },
-  section: { backgroundColor: colors.surface, borderRadius: borderRadius.xl, overflow: 'hidden', borderWidth: 1, borderColor: colors.borderLight, ...shadows.sm },
-  menuItem: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.borderLight },
-  menuIcon: { width: 36, height: 36, borderRadius: borderRadius.md, backgroundColor: colors.borderLight, alignItems: 'center', justifyContent: 'center' },
-  menuIconHighlight: { backgroundColor: colors.primaryLight },
-  menuLabel: { flex: 1, ...typography.bodyMedium, color: colors.text },
-  menuLabelHighlight: { color: colors.primary, fontWeight: '700' },
-  logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, backgroundColor: colors.errorLight, paddingVertical: spacing.lg, borderRadius: borderRadius.lg },
+  content: { padding: spacing.xl, gap: spacing.lg, paddingBottom: spacing.xxxl },
+
+  // Profile Card
+  profileCard: {
+    borderRadius: borderRadius.xl,
+    padding: spacing.xl,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.lg,
+    ...shadows.brand,
+  },
+  avatarWrap: { position: 'relative' },
+  avatar: {
+    width: 56,
+    height: 56,
+    borderRadius: borderRadius.full,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.5)',
+  },
+  avatarText: { fontSize: 22, fontWeight: '800', color: '#fff' },
+  avatarBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.success,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  profileInfo: { flex: 1, gap: 3 },
+  profileName: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  profileEmail: { ...typography.caption, color: 'rgba(255,255,255,0.75)' },
+  planChip: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  planChipText: { ...typography.label, color: '#fff', fontSize: 10 },
+
+  // Upgrade Banner
+  upgradeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    borderWidth: 1.5,
+    borderColor: colors.primaryMid,
+    ...shadows.sm,
+  },
+  upgradeLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  upgradeTitle: { ...typography.bodyMedium, color: colors.primary, fontWeight: '700' },
+  upgradeSubtitle: { ...typography.caption, color: colors.textSecondary },
+
+  // Menu
+  section: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    ...shadows.sm,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+  },
+  menuIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuText: { flex: 1, gap: 2 },
+  menuLabel: { ...typography.bodyMedium, color: colors.text, fontWeight: '600' },
+  menuSub: { ...typography.caption, color: colors.textSecondary },
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.errorLight,
+    paddingVertical: spacing.lg,
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+  },
   logoutText: { ...typography.button, color: colors.error },
+
+  // Guest
   guestContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl },
-  guestCard: { backgroundColor: colors.surface, borderRadius: borderRadius.xl, padding: spacing.xxl, alignItems: 'center', gap: spacing.lg, width: '100%', ...shadows.md, borderWidth: 1, borderColor: colors.borderLight },
-  guestIcon: { width: 88, height: 88, borderRadius: borderRadius.full, backgroundColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
-  guestTitle: { fontSize: 22, fontWeight: '800', color: colors.text, textAlign: 'center' },
+  guestCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xxl,
+    padding: spacing.xxl,
+    alignItems: 'center',
+    gap: spacing.lg,
+    width: '100%',
+    ...shadows.lg,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  guestIcon: {
+    width: 96,
+    height: 96,
+    borderRadius: borderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  guestTitle: { fontSize: 22, fontWeight: '800', color: colors.text, textAlign: 'center', letterSpacing: -0.3 },
   guestSubtitle: { ...typography.body, color: colors.textSecondary, textAlign: 'center', lineHeight: 22 },
-  signInBtn: { width: '100%', backgroundColor: colors.primary, paddingVertical: spacing.lg, borderRadius: borderRadius.lg, alignItems: 'center', ...shadows.md },
-  signInText: { ...typography.button, color: colors.surface },
-  registerBtn: { width: '100%', borderWidth: 1.5, borderColor: colors.primary, paddingVertical: spacing.lg, borderRadius: borderRadius.lg, alignItems: 'center' },
+  signInBtn: { width: '100%', borderRadius: borderRadius.xl, overflow: 'hidden', ...shadows.brand },
+  signInGrad: { paddingVertical: spacing.lg, alignItems: 'center' },
+  signInText: { ...typography.button, color: '#fff' },
+  registerBtn: {
+    width: '100%',
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    paddingVertical: spacing.lg,
+    borderRadius: borderRadius.xl,
+    alignItems: 'center',
+  },
   registerText: { ...typography.button, color: colors.primary },
 });

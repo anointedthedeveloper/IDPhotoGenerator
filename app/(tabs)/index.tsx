@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { useIDPhotoGenerator } from '@/hooks/useIDPhotoGenerator';
 import { UploadSection } from '@/components/feature/UploadSection';
 import { OptionsPanel } from '@/components/feature/OptionsPanel';
@@ -9,8 +10,6 @@ import { ResultsGrid } from '@/components/feature/ResultsGrid';
 import { useAlert } from '@/template';
 import { colors, spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useEffect, useState } from 'react';
-import { AppLogo } from '@/components/ui/AppLogo';
-import { AppFooter } from '@/components/ui/AppFooter';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -39,36 +38,46 @@ export default function HomeScreen() {
   const isTablet = dimensions.width >= 768;
   const isLandscape = dimensions.width > dimensions.height;
 
-  const renderHero = () => (
-    <View style={styles.heroWrap}>
-      <LinearGradient
-        colors={['#FFFFFF', colors.backgroundAlt]}
-        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-        style={styles.heroCard}
-      >
-        <View style={styles.heroTopRow}>
-          <View style={styles.heroBadge}>
-            <View style={styles.heroDot} />
-            <Text style={styles.heroBadgeText}>AI-powered ID photo studio</Text>
+  const renderHeader = () => (
+    <View style={[styles.header, { paddingTop: insets.top + spacing.lg }]}>
+      <View style={styles.headerTop}>
+        <View>
+          <Text style={styles.kicker}>AI Studio</Text>
+          <Text style={styles.title}>ID Photo{'\n'}Generator</Text>
+        </View>
+        <View style={styles.headerBadge}>
+          <LinearGradient
+            colors={[colors.primaryGradientStart, colors.accent]}
+            style={styles.headerBadgeGrad}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Ionicons name="sparkles" size={14} color="#fff" />
+            <Text style={styles.headerBadgeText}>AI Powered</Text>
+          </LinearGradient>
+        </View>
+      </View>
+      <Text style={styles.subtitle}>
+        Turn any portrait into a sharp, ID-ready photo in seconds.
+      </Text>
+    </View>
+  );
+
+  const renderSteps = () => (
+    <View style={styles.stepsRow}>
+      {[
+        { n: '1', label: 'Upload' },
+        { n: '2', label: 'Configure' },
+        { n: '3', label: 'Generate' },
+      ].map((step, i, arr) => (
+        <View key={step.n} style={styles.stepItem}>
+          <View style={styles.stepCircle}>
+            <Text style={styles.stepNum}>{step.n}</Text>
           </View>
-          <View style={styles.heroMiniStat}>
-            <Text style={styles.heroMiniStatValue}>3-step</Text>
-            <Text style={styles.heroMiniStatLabel}>flow</Text>
-          </View>
+          <Text style={styles.stepLabel}>{step.label}</Text>
+          {i < arr.length - 1 && <View style={styles.stepLine} />}
         </View>
-        <View style={styles.heroCopy}>
-          <AppLogo size="lg" />
-          <Text style={styles.heroTitle}>Professional ID photos, without the studio visit.</Text>
-          <Text style={styles.subtitle}>Upload a portrait, choose your format, and generate a clean ID-ready result in seconds.</Text>
-        </View>
-        <View style={styles.heroChips}>
-          {['Passport ready', 'Visa formats', 'Fast export'].map(label => (
-            <View key={label} style={styles.heroChip}>
-              <Text style={styles.heroChipText}>{label}</Text>
-            </View>
-          ))}
-        </View>
-      </LinearGradient>
+      ))}
     </View>
   );
 
@@ -76,8 +85,12 @@ export default function HomeScreen() {
     <>
       <UploadSection imageUri={selectedImage} onPress={handlePickImage} />
       <OptionsPanel
-        photoType={photoType} backgroundColor={backgroundColor} aspectRatio={aspectRatio}
-        onPhotoTypeChange={setPhotoType} onBackgroundColorChange={setBackgroundColor} onAspectRatioChange={setAspectRatio}
+        photoType={photoType}
+        backgroundColor={backgroundColor}
+        aspectRatio={aspectRatio}
+        onPhotoTypeChange={setPhotoType}
+        onBackgroundColorChange={setBackgroundColor}
+        onAspectRatioChange={setAspectRatio}
       />
       <GenerateButton onPress={handleGenerate} loading={isGenerating} disabled={!selectedImage} />
     </>
@@ -86,15 +99,12 @@ export default function HomeScreen() {
   if (isTablet || isLandscape) {
     return (
       <View style={styles.container}>
-        <LinearGradient colors={['#F9FBFF', colors.background]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFillObject} />
-        <View style={[styles.header, { paddingTop: insets.top + spacing.lg }]}>
-          <Text style={styles.kicker}>Create</Text>
-          <Text style={styles.title}>AI ID Photo Generator</Text>
-        </View>
+        <LinearGradient colors={[colors.background, '#E4ECFF']} style={StyleSheet.absoluteFillObject} />
+        {renderHeader()}
         <View style={styles.splitContainer}>
           <View style={styles.leftPanel}>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.leftContent}>
-              {renderHero()}
+              {renderSteps()}
               {renderControls()}
             </ScrollView>
           </View>
@@ -108,21 +118,22 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#F8FBFF', colors.background]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFillObject} />
-      <ScrollView style={styles.container} contentContainerStyle={styles.mobileContent} showsVerticalScrollIndicator={false}>
-        <View style={[styles.header, { paddingTop: insets.top + spacing.lg }]}>
-          <Text style={styles.kicker}>Create</Text>
-          <Text style={styles.title}>AI ID Photo Generator</Text>
-          <Text style={styles.subtitle}>Turn any portrait into a sharp, ID-ready photo with a few taps.</Text>
-        </View>
-        {renderHero()}
+      <LinearGradient colors={[colors.background, '#E4ECFF']} style={StyleSheet.absoluteFillObject} />
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.mobileContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {renderHeader()}
+        {renderSteps()}
         {renderControls()}
+
         {generatedPhotos.length > 0 && (
           <View style={styles.resultsSection}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.resultsTitle}>Generated Photos</Text>
-              <View style={styles.sectionPill}>
-                <Text style={styles.sectionPillText}>{generatedPhotos.length} ready</Text>
+              <Text style={styles.sectionTitle}>Generated Photos</Text>
+              <View style={styles.sectionCount}>
+                <Text style={styles.sectionCountText}>{generatedPhotos.length} ready</Text>
               </View>
             </View>
             <View style={styles.resultsContainer}>
@@ -130,41 +141,154 @@ export default function HomeScreen() {
             </View>
           </View>
         )}
-        <AppFooter />
+
+        <View style={styles.bottomPad} />
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  header: { paddingHorizontal: spacing.xl, gap: spacing.sm, paddingBottom: spacing.lg },
-  kicker: { ...typography.label, color: colors.primary },
-  title: { ...typography.title, color: colors.text, fontSize: 30 },
-  subtitle: { ...typography.body, color: colors.textSecondary, lineHeight: 23 },
-  heroWrap: { paddingHorizontal: spacing.xl, paddingBottom: spacing.lg },
-  heroCard: { borderRadius: borderRadius.xl, padding: spacing.xl, gap: spacing.lg, borderWidth: 1, borderColor: colors.borderLight, ...shadows.md },
-  heroTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
-  heroBadge: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, backgroundColor: colors.primaryLight, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: borderRadius.full, flexShrink: 1 },
-  heroDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary },
-  heroBadgeText: { ...typography.caption, color: colors.primaryDark, fontWeight: '700' },
-  heroMiniStat: { alignItems: 'flex-end' },
-  heroMiniStatValue: { ...typography.bodyMedium, color: colors.text, fontWeight: '700' },
-  heroMiniStatLabel: { ...typography.caption, color: colors.textSecondary },
-  heroCopy: { gap: spacing.sm },
-  heroTitle: { fontSize: 24, lineHeight: 32, color: colors.text, fontWeight: '800', letterSpacing: -0.4 },
-  heroChips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  heroChip: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: borderRadius.full, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.borderLight },
-  heroChipText: { ...typography.caption, color: colors.textSecondary, fontWeight: '600' },
-  splitContainer: { flex: 1, flexDirection: 'row', gap: spacing.xl, paddingHorizontal: spacing.xl, paddingBottom: spacing.xl },
+  container: { flex: 1 },
+  header: {
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.xl,
+    gap: spacing.md,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  kicker: {
+    ...typography.label,
+    color: colors.primary,
+    marginBottom: spacing.xs,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: colors.text,
+    letterSpacing: -0.8,
+    lineHeight: 38,
+  },
+  subtitle: {
+    ...typography.body,
+    color: colors.textSecondary,
+    lineHeight: 22,
+  },
+  headerBadge: { borderRadius: borderRadius.full, overflow: 'hidden', marginTop: spacing.xs },
+  headerBadgeGrad: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+  },
+  headerBadgeText: {
+    ...typography.caption,
+    color: '#fff',
+    fontWeight: '700',
+  },
+
+  // Steps
+  stepsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: spacing.xl,
+    marginBottom: spacing.xl,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    ...shadows.sm,
+  },
+  stepItem: {
+    alignItems: 'center',
+    gap: spacing.xs,
+    flex: 1,
+    position: 'relative',
+  },
+  stepCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepNum: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#fff',
+  },
+  stepLabel: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  stepLine: {
+    position: 'absolute',
+    top: 16,
+    right: -spacing.lg,
+    width: spacing.xxl,
+    height: 2,
+    backgroundColor: colors.primaryMid,
+    borderRadius: 1,
+  },
+
+  mobileContent: { paddingBottom: spacing.xl, flexGrow: 1, gap: spacing.xl },
+  splitContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: spacing.xl,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.xl,
+  },
   leftPanel: { flex: 1, maxWidth: 420 },
-  leftContent: { gap: spacing.lg, paddingBottom: spacing.xl },
-  rightPanel: { flex: 1, backgroundColor: colors.surface, borderRadius: borderRadius.lg, overflow: 'hidden', ...shadows.md },
-  mobileContent: { paddingBottom: spacing.xl, gap: spacing.lg, flexGrow: 1 },
-  resultsSection: { gap: spacing.lg, marginTop: spacing.xl, paddingHorizontal: spacing.xl },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  resultsTitle: { ...typography.heading, color: colors.text },
-  sectionPill: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: borderRadius.full, backgroundColor: colors.primaryLight },
-  sectionPillText: { ...typography.caption, color: colors.primaryDark, fontWeight: '700' },
-  resultsContainer: { backgroundColor: colors.surface, borderRadius: borderRadius.xl, overflow: 'hidden', minHeight: 300, borderWidth: 1, borderColor: colors.borderLight, ...shadows.md },
+  leftContent: { gap: spacing.xl, paddingBottom: spacing.xl },
+  rightPanel: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    overflow: 'hidden',
+    ...shadows.md,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  resultsSection: {
+    gap: spacing.md,
+    paddingHorizontal: spacing.xl,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sectionTitle: { ...typography.heading, color: colors.text },
+  sectionCount: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primaryLight,
+  },
+  sectionCountText: {
+    ...typography.caption,
+    color: colors.primaryDark,
+    fontWeight: '700',
+  },
+  resultsContainer: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    overflow: 'hidden',
+    minHeight: 300,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    ...shadows.md,
+  },
+  bottomPad: { height: spacing.xl },
 });
