@@ -48,6 +48,12 @@
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.INTERNET"
       ],
+      "notification": {
+        "icon": "./assets/logo.png",
+        "color": "#4F7CFF",
+        "androidMode": "default",
+        "androidCollapsedTitle": "IDPhoto AI"
+      },
       "package": "online.anobyte.idphoto",
       "versionCode": 1
     },
