@@ -26,9 +26,21 @@ class SupabaseManager {
     try {
       console.log(`[Template:Client] Creating Supabase client instance #${this.creationCount}`);
       
+<<<<<<< HEAD
       const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? 'https://mxdjwnbfypwjdzmcpwhp.supabase.co';
       const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NzUzNDEwNTgsImV4cCI6MjA5MDcwMTA1OCwiaXNzIjoib25zcGFjZSIsInJlZiI6Imd3aGd2dGh5ZWNvemdzY2lnd2hnIiwicm9sZSI6ImFub24ifQ.20NmanWjY11BKwo4ILR-eDSGBzCUeBvHpcoSn8Bm0S0';
       const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? 'https://gwhgvthyecozgscigwhg.backend.onspace.ai';
+=======
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+      
+      if (!supabaseUrl || !supabaseAnonKey) {
+        const errorMsg = '[Template:Client] Supabase environment variables missing\n' +
+          'Please check EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY in .env file';
+        console.error(errorMsg);
+        throw new Error(errorMsg);
+      }
+>>>>>>> b514a59d769a3d05198216c1cba8be5800bb7917
       
       if (this.creationCount > 1) {
         console.warn(`[Template:Client] ⚠️ Multiple client creation detected! This is creation #${this.creationCount}`);
