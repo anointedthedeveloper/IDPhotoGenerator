@@ -7,6 +7,28 @@ import { useUserPlan } from '@/contexts/UserPlanContext';
 
 const VIRTUAL_USER_ID = '00000000-0000-0000-0000-000000000000';
 
+export type GenerationStage =
+  | 'idle'
+  | 'uploading'
+  | 'processing'
+  | 'finalizing'
+  | 'done';
+
+export interface GenerationProgress {
+  stage: GenerationStage;
+  label: string;
+  subLabel: string;
+  percent: number;
+}
+
+const STAGES: Record<GenerationStage, GenerationProgress> = {
+  idle: { stage: 'idle', label: '', subLabel: '', percent: 0 },
+  uploading: { stage: 'uploading', label: 'Uploading photo', subLabel: 'Preparing your image securely...', percent: 20 },
+  processing: { stage: 'processing', label: 'Processing with AI', subLabel: 'Generating your professional ID photo...', percent: 60 },
+  finalizing: { stage: 'finalizing', label: 'Finalizing', subLabel: 'Saving to your library...', percent: 90 },
+  done: { stage: 'done', label: 'Complete', subLabel: 'Your ID photo is ready!', percent: 100 },
+};
+
 export const useIDPhotoGenerator = () => {
   const { addPhoto } = usePhotoLibrary();
   const { canGenerate, needsWatermark, remainingFree, cooldownSeconds, isPro, recordGeneration } = useUserPlan();
@@ -17,7 +39,11 @@ export const useIDPhotoGenerator = () => {
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('3:4');
   const [generatedPhotos, setGeneratedPhotos] = useState<GeneratePhotoResult[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [progress, setProgress] = useState<GenerationProgress>(STAGES.idle);
   const [error, setError] = useState<string | null>(null);
+  const [latestResult, setLatestResult] = useState<{ original: string; generated: string } | null>(null);
+
+  const setStage = (stage: GenerationStage) => setProgress(STAGES[stage]);
 
   const handlePickImage = async () => {
     try {
@@ -43,13 +69,18 @@ export const useIDPhotoGenerator = () => {
 
     setIsGenerating(true);
     setError(null);
+    setLatestResult(null);
 
     try {
+      setStage('uploading');
       const base64Image = await convertImageToBase64(selectedImage);
+
+      setStage('processing');
       const { data, error: genError } = await generateIDPhoto({ image: base64Image, photoType, backgroundColor, aspectRatio });
       if (genError) { setError(genError); return; }
       if (!data) return;
 
+      setStage('finalizing');
       const { url: originalUrl, error: uploadOriginalError } = await uploadImageToStorage(selectedImage, VIRTUAL_USER_ID, 'original');
       if (uploadOriginalError || !originalUrl) { setError(uploadOriginalError || 'Failed to upload original image'); return; }
 
@@ -67,17 +98,20 @@ export const useIDPhotoGenerator = () => {
 
       await recordGeneration();
 
+      setLatestResult({ original: selectedImage, generated: generatedUrl });
       setGeneratedPhotos(prev => [{ image: generatedUrl, description: data.description }, ...prev]);
+      setStage('done');
     } catch (err) {
       setError((err as Error).message || 'Failed to generate photo');
     } finally {
       setIsGenerating(false);
+      setTimeout(() => setStage('idle'), 3000);
     }
   };
 
   return {
     selectedImage, photoType, backgroundColor, aspectRatio,
-    generatedPhotos, isGenerating, error,
+    generatedPhotos, isGenerating, progress, error, latestResult,
     needsWatermark, remainingFree, cooldownSeconds, isPro, canGenerate,
     setPhotoType, setBackgroundColor, setAspectRatio,
     handlePickImage, handleGenerate,
