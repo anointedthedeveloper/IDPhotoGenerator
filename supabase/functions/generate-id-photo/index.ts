@@ -21,8 +21,10 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Image is required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const geminiKey = Deno.env.get('GEMINI_API_KEY');
     const hfKey = Deno.env.get('HF_TOKEN');
+    if (!hfKey) {
+      return new Response(JSON.stringify({ error: 'HF_TOKEN not configured' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
 
     const base64Match = image.match(/^data:image\/(\w+);base64,(.+)$/);
     if (!base64Match) {
@@ -31,99 +33,92 @@ Deno.serve(async (req) => {
 
     const mimeType = `image/${base64Match[1]}`;
     const base64Data = base64Match[2];
+    const imageBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+    const imageBlob = new Blob([imageBytes], { type: mimeType });
 
     const bgDesc = backgroundColor === 'white' ? 'plain white' : backgroundColor === 'gray' ? 'neutral gray' : 'light blue';
-    const frameDesc = photoType === 'full' ? 'full body from head to toe, standing straight, hands at sides' : 'half body from waist up, head and shoulders, no hands visible';
+    const frameDesc = photoType === 'full' ? 'full body standing straight' : 'half body, head and shoulders';
 
-    const megaPrompt = `Transform this photo into a professional passport ID photo of the EXACT same person. Preserve all facial features exactly — same face, same skin tone, same age, same ethnicity. Front-facing, shoulders straight, neutral expression, ${frameDesc}. Wearing a navy blue suit, white shirt, and tie. ${bgDesc} background, soft studio lighting, no shadows on background, sharp focus, realistic photography, high resolution.`;
-    const negativePrompt = 'different person, different face, different skin tone, cartoon, blurry, casual clothes, sunglasses, hat, watermark, text, low quality';
+    // Mega prompt — very specific to preserve face
+    const prompt = `professional passport ID photo of the same person, preserve exact face skin tone ethnicity age, ${frameDesc}, navy blue business suit white shirt tie, ${bgDesc} background, front facing, neutral expression, studio lighting, sharp focus, photorealistic, high quality`;
+    const negativePrompt = 'different person, different face, different skin color, cartoon, blurry, casual clothes, sunglasses, hat, watermark, text, low quality, deformed, ugly';
 
-    // Try Gemini image models
-    const geminiModels = [
-      'gemini-2.5-flash-image',
-      'gemini-3.1-flash-image-preview',
-      'gemini-3-pro-image-preview',
+    console.log('Image size:', imageBytes.length, 'bytes');
+
+    // Models to try in order — all support img2img
+    const models = [
+      { id: 'lllyasviel/control_v11p_sd15_openpose', strength: 0.3 },
+      { id: 'timbrooks/instruct-pix2pix', strength: 0.2 },
+      { id: 'stabilityai/stable-diffusion-xl-refiner-1.0', strength: 0.25 },
     ];
 
-    if (geminiKey) {
-      for (const model of geminiModels) {
-        console.log('Trying Gemini:', model);
-        try {
-          const res = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{ parts: [{ text: megaPrompt }, { inline_data: { mime_type: mimeType, data: base64Data } }] }],
-                generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
-              }),
-            }
-          );
+    for (const { id, strength } of models) {
+      console.log('Trying:', id, 'strength:', strength);
+      try {
+        const form = new FormData();
+        form.append('inputs', imageBlob, 'photo.jpg');
+        form.append('parameters', JSON.stringify({
+          prompt,
+          negative_prompt: negativePrompt,
+          strength,
+          guidance_scale: 12,
+          image_guidance_scale: 1.0,
+          num_inference_steps: 50,
+        }));
 
-          console.log(model, 'status:', res.status);
-          if (!res.ok) { const e = await res.text(); console.log(model, 'error:', e.substring(0, 150)); continue; }
-
-          const result = await res.json();
-          const parts = result.candidates?.[0]?.content?.parts ?? [];
-          const imgPart = parts.find((p: any) => p.inlineData);
-          const txtPart = parts.find((p: any) => p.text);
-
-          if (imgPart) {
-            console.log('Gemini success:', model);
-            return new Response(
-              JSON.stringify({ image: `data:${imgPart.inlineData.mimeType};base64,${imgPart.inlineData.data}`, description: txtPart?.text ?? 'Professional ID photo generated' }),
-              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
-          }
-          console.log(model, 'no image in response:', JSON.stringify(result).substring(0, 200));
-        } catch (e) { console.log(model, 'exception:', e.message); }
-      }
-    }
-
-    // HuggingFace img2img fallback
-    if (hfKey) {
-      console.log('Trying HuggingFace img2img...');
-      const imageBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-      const imageBlob = new Blob([imageBytes], { type: mimeType });
-
-      for (const model of ['timbrooks/instruct-pix2pix', 'stabilityai/stable-diffusion-xl-refiner-1.0']) {
-        console.log('HF model:', model);
-        try {
-          const form = new FormData();
-          form.append('inputs', imageBlob, 'photo.jpg');
-          form.append('parameters', JSON.stringify({ prompt: megaPrompt, negative_prompt: negativePrompt, strength: 0.25, guidance_scale: 10, image_guidance_scale: 1.2, num_inference_steps: 50 }));
-
-          const res = await fetch(`https://router.huggingface.co/hf-inference/models/${model}`, {
+        const res = await fetch(
+          `https://router.huggingface.co/hf-inference/models/${id}`,
+          {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${hfKey}`, 'x-wait-for-model': 'true' },
+            headers: {
+              'Authorization': `Bearer ${hfKey}`,
+              'x-wait-for-model': 'true',
+            },
             body: form,
-          });
+          }
+        );
 
-          console.log(model, 'status:', res.status);
-          if (!res.ok) { const e = await res.text(); console.log(model, 'failed:', e.substring(0, 150)); continue; }
+        console.log(id, 'status:', res.status);
+        if (!res.ok) {
+          const e = await res.text();
+          console.log(id, 'failed:', e.substring(0, 200));
+          continue;
+        }
 
-          const bytes = new Uint8Array(await res.arrayBuffer());
-          const preview = new TextDecoder().decode(bytes.slice(0, 50));
-          if (preview.trimStart().startsWith('{')) { console.log(model, 'JSON error:', preview); continue; }
+        const bytes = new Uint8Array(await res.arrayBuffer());
+        const preview = new TextDecoder().decode(bytes.slice(0, 80));
+        if (preview.trimStart().startsWith('{')) {
+          console.log(id, 'returned JSON error:', preview);
+          continue;
+        }
 
-          const ct = res.headers.get('content-type') ?? '';
-          console.log('HF success:', model);
-          return new Response(
-            JSON.stringify({ image: `data:${ct.includes('png') ? 'image/png' : 'image/jpeg'};base64,${uint8ArrayToBase64(bytes)}`, description: `Professional ID photo — ${photoType} body, ${backgroundColor} background` }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        } catch (e) { console.log(model, 'exception:', e.message); }
+        const ct = res.headers.get('content-type') ?? '';
+        console.log('Success:', id, bytes.length, 'bytes');
+
+        return new Response(
+          JSON.stringify({
+            image: `data:${ct.includes('png') ? 'image/png' : 'image/jpeg'};base64,${uint8ArrayToBase64(bytes)}`,
+            description: `Professional ID photo — ${photoType} body, ${backgroundColor} background`,
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+
+      } catch (e) {
+        console.log(id, 'exception:', e.message);
+        continue;
       }
     }
 
     return new Response(
-      JSON.stringify({ error: 'All generation methods failed. Please try again in a moment.' }),
+      JSON.stringify({ error: 'Generation failed. Models may be loading — please try again in 30 seconds.' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
     console.error('Unhandled error:', error.message);
-    return new Response(JSON.stringify({ error: error.message || 'Internal server error' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    return new Response(
+      JSON.stringify({ error: error.message || 'Internal server error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
 });
