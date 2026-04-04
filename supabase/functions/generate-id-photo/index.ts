@@ -1,14 +1,5 @@
 import { corsHeaders } from '../_shared/cors.ts';
 
-function base64ToUint8Array(base64: string): Uint8Array {
-  const binaryString = atob(base64);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes;
-}
-
 function uint8ArrayToBase64(bytes: Uint8Array): string {
   let binary = '';
   const chunkSize = 8192;
@@ -35,12 +26,7 @@ Deno.serve(async (req) => {
     }
 
     const geminiKey = Deno.env.get('GEMINI_API_KEY');
-    if (!geminiKey) {
-      return new Response(
-        JSON.stringify({ error: 'GEMINI_API_KEY not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const hfKey = Deno.env.get('HF_TOKEN');
 
     const base64Match = image.match(/^data:image\/(\w+);base64,(.+)$/);
     if (!base64Match) {
@@ -53,67 +39,131 @@ Deno.serve(async (req) => {
     const mimeType = `image/${base64Match[1]}`;
     const base64Data = base64Match[2];
 
-    const bgDesc = backgroundColor === 'white' ? 'pure white'
+    const bgDesc = backgroundColor === 'white' ? 'plain white'
       : backgroundColor === 'gray' ? 'neutral gray'
       : 'light blue';
 
     const frameDesc = photoType === 'full'
-      ? 'full body from head to toe, standing straight'
-      : 'half body from waist up, head and shoulders visible';
+      ? 'full body from head to toe, standing straight, hands at sides'
+      : 'half body from waist up, head and shoulders, no hands visible';
 
-    const prompt = `Transform this photo into a professional ID/passport photo of the SAME person with the EXACT same face, skin tone, and facial features. Keep the person's identity completely unchanged. Apply these changes only: 1) Replace background with solid ${bgDesc} background 2) Dress the person in formal business attire (suit and tie) 3) Adjust framing to ${frameDesc} 4) Apply even studio lighting 5) Ensure the person is centered and looking at the camera. Do NOT change the person's face, age, skin color, or identity in any way.`;
+    const megaPrompt = `A professional passport ID photo of the EXACT same person as in the input image. Preserve all facial features exactly — same face, same skin tone, same age, same ethnicity. Front-facing, shoulders straight, neutral expression, ${frameDesc}. Wearing a navy blue suit, white shirt, and tie. ${bgDesc} background, soft studio lighting, no shadows on background, sharp focus, realistic photography, high resolution, 85mm lens, cinematic color grading.`;
 
-    console.log('Calling Gemini imagen...');
+    const negativePrompt = 'different person, different face, different skin tone, cartoon, anime, blurry, dark background, casual clothes, sunglasses, hat, watermark, text, low quality, deformed, multiple people';
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { text: prompt },
-              { inline_data: { mime_type: mimeType, data: base64Data } },
-            ],
-          }],
-          generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
-        }),
+    // 1. Try Gemini first
+    if (geminiKey) {
+      console.log('Trying Gemini gemini-2.5-flash-image...');
+      try {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${geminiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{
+                parts: [
+                  { text: megaPrompt },
+                  { inline_data: { mime_type: mimeType, data: base64Data } },
+                ],
+              }],
+              generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
+            }),
+          }
+        );
+
+        console.log('Gemini status:', response.status);
+
+        if (response.ok) {
+          const result = await response.json();
+          const parts = result.candidates?.[0]?.content?.parts ?? [];
+          const imagePart = parts.find((p: any) => p.inlineData);
+          const textPart = parts.find((p: any) => p.text);
+
+          if (imagePart) {
+            console.log('Gemini success!');
+            return new Response(
+              JSON.stringify({
+                image: `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`,
+                description: textPart?.text ?? 'Professional ID photo generated',
+              }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          console.log('Gemini returned no image:', JSON.stringify(result).substring(0, 200));
+        } else {
+          const err = await response.text();
+          console.log('Gemini failed:', err.substring(0, 200));
+        }
+      } catch (e) {
+        console.log('Gemini error:', e.message);
       }
-    );
-
-    console.log('Gemini status:', response.status);
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error('Gemini error:', errText);
-      return new Response(
-        JSON.stringify({ error: `Gemini error: ${errText}` }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
     }
 
-    const result = await response.json();
-    const parts = result.candidates?.[0]?.content?.parts ?? [];
-    const imagePart = parts.find((p: any) => p.inlineData);
-    const textPart = parts.find((p: any) => p.text);
+    // 2. Fallback: HuggingFace img2img with low strength to preserve face
+    if (hfKey) {
+      console.log('Falling back to HuggingFace img2img...');
 
-    console.log('Gemini parts count:', parts.length, 'has image:', !!imagePart);
+      const imageBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+      const imageBlob = new Blob([imageBytes], { type: mimeType });
 
-    if (!imagePart) {
-      console.error('No image in response:', JSON.stringify(result).substring(0, 300));
-      return new Response(
-        JSON.stringify({ error: 'Gemini did not return an image. Try again.' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      const models = [
+        'timbrooks/instruct-pix2pix',
+        'stabilityai/stable-diffusion-xl-refiner-1.0',
+      ];
+
+      for (const model of models) {
+        console.log('Trying HF model:', model);
+        try {
+          const form = new FormData();
+          form.append('inputs', imageBlob, 'photo.jpg');
+          form.append('parameters', JSON.stringify({
+            prompt: megaPrompt,
+            negative_prompt: negativePrompt,
+            strength: 0.25,
+            guidance_scale: 10,
+            image_guidance_scale: 1.2,
+            num_inference_steps: 50,
+          }));
+
+          const response = await fetch(
+            `https://router.huggingface.co/hf-inference/models/${model}`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${hfKey}`,
+                'x-wait-for-model': 'true',
+              },
+              body: form,
+            }
+          );
+
+          console.log(model, 'status:', response.status);
+          if (!response.ok) { const e = await response.text(); console.log(model, 'failed:', e.substring(0, 150)); continue; }
+
+          const bytes = new Uint8Array(await response.arrayBuffer());
+          const preview = new TextDecoder().decode(bytes.slice(0, 50));
+          if (preview.trimStart().startsWith('{')) { console.log(model, 'JSON error:', preview); continue; }
+
+          const ct = response.headers.get('content-type') ?? '';
+          console.log('HF success:', model, bytes.length, 'bytes');
+          return new Response(
+            JSON.stringify({
+              image: `data:${ct.includes('png') ? 'image/png' : 'image/jpeg'};base64,${uint8ArrayToBase64(bytes)}`,
+              description: `Professional ID photo — ${photoType} body, ${backgroundColor} background`,
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        } catch (e) {
+          console.log(model, 'error:', e.message);
+          continue;
+        }
+      }
     }
 
     return new Response(
-      JSON.stringify({
-        image: `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`,
-        description: textPart?.text ?? `Professional ID photo — ${photoType} body, ${backgroundColor} background`,
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ error: 'All generation methods failed. Please try again.' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
