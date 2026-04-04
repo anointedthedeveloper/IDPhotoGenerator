@@ -1,165 +1,100 @@
 import { corsHeaders } from '../_shared/cors.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    const { image, photoType = 'half', backgroundColor = 'white', aspectRatio = '3:4' } = await req.json();
+    const { image, photoType, backgroundColor, aspectRatio } = await req.json();
 
     if (!image) {
-      return new Response(JSON.stringify({ error: 'Image is required' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify({ error: 'Image is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    const aiApiKey = Deno.env.get('ONSPACE_AI_API_KEY');
-    const aiBaseUrl = Deno.env.get('ONSPACE_AI_BASE_URL');
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    // Build system prompt based on user selections
+    const systemPrompt = `You are an ID photo generator. Your task is to transform the input image into a professional ID photo with the following requirements:
 
-    if (!aiApiKey || !aiBaseUrl) {
-      return new Response(JSON.stringify({ error: 'OnSpace AI not configured' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+1. Change the person's wearing to suit a professional ID photo (formal attire).
+2. The proportions of people in the generated image should follow the normal proportions of ID photos.
+3. Photo type: ${photoType === 'full' ? 'Full body - showing the entire person from head to feet, including legs and shoes. The person should be standing straight with their full body visible in the frame' : 'Half body - head and upper torso only, typically from waist up'}.
+4. Background color: ${backgroundColor} (solid, clean background).
+5. Ensure proper lighting, centered composition, and professional appearance.
+6. Keep the person's face clearly visible and well-lit.`;
+
+    const userPrompt = `Transform this photo into a professional ID photo following all the requirements.`;
+
+    console.log('Generating ID photo with settings:', { photoType, backgroundColor, aspectRatio });
+
+    // Call OnSpace AI service
+    const baseUrl = Deno.env.get('ONSPACE_AI_BASE_URL');
+    const apiKey = Deno.env.get('ONSPACE_AI_API_KEY');
+
+    if (!baseUrl || !apiKey) {
+      throw new Error('AI service not configured');
     }
 
-    // Validate base64 image
-    const base64Match = image.match(/^data:image\/(\w+);base64,(.+)$/);
-    if (!base64Match) {
-      return new Response(JSON.stringify({ error: 'Invalid image format. Expected base64 data URL.' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const bgDesc =
-      backgroundColor === 'white' ? 'plain white'
-      : backgroundColor === 'gray' ? 'neutral gray'
-      : backgroundColor === 'blue' ? 'light blue'
-      : backgroundColor;
-
-    const frameDesc =
-      photoType === 'full'
-        ? 'full body standing straight, head to toe, hands at sides'
-        : 'half body portrait, head and shoulders, waist up';
-
-    const prompt = `You are a professional ID photo editor. Transform the provided photo into a formal passport/ID photo with these exact specifications:
-- Preserve the person's exact facial features, skin tone, ethnicity, and age
-- ${frameDesc}
-- Professional attire: navy blue business suit, white shirt, tie for men / formal blazer for women
-- Background: solid ${bgDesc} background, completely uniform
-- Pose: front facing, neutral expression, eyes open and looking forward
-- Lighting: soft, even studio lighting, no harsh shadows
-- Sharp focus, high resolution, photorealistic quality
-- Standard passport/ID photo composition and proportions
-
-Transform the uploaded photo accordingly.`;
-
-    console.log('Calling OnSpace AI for image generation...');
-
-    const requestBody = {
-      model: 'google/gemini-2.5-flash-image',
-      modalities: ['image', 'text'],
-      image_config: {
-        aspect_ratio: aspectRatio === '1:1' ? '1:1' : '3:4',
-        image_size: '1K',
-      },
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'image_url',
-              image_url: { url: image },
-            },
-            {
-              type: 'text',
-              text: prompt,
-            },
-          ],
-        },
-      ],
-    };
-
-    const aiRes = await fetch(`${aiBaseUrl}/chat/completions`, {
+    const response = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${aiApiKey}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(requestBody),
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash-image-preview',
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt,
+          },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: userPrompt },
+              { type: 'image_url', image_url: { url: image } },
+            ],
+          },
+        ],
+        modalities: ['image', 'text'],
+        image_config: {
+          aspect_ratio: aspectRatio,
+        },
+      }),
     });
 
-    console.log('OnSpace AI status:', aiRes.status);
-
-    if (!aiRes.ok) {
-      const errText = await aiRes.text();
-      console.error('OnSpace AI error:', errText);
-      return new Response(JSON.stringify({ error: `OnSpace AI error: ${errText}` }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('AI API Error:', errorText);
+      return new Response(
+        JSON.stringify({ error: `AI service error: ${errorText}` }),
+        { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    const aiResult = await aiRes.json();
-    console.log('OnSpace AI response received');
+    const result = await response.json();
+    console.log('AI response received');
 
-    const generatedImageUrl = aiResult?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-    if (!generatedImageUrl) {
-      console.error('No image in response:', JSON.stringify(aiResult).substring(0, 500));
-      return new Response(JSON.stringify({ error: 'No image returned from OnSpace AI' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    // Extract image from response
+    const generatedImage = result.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    const description = result.choices?.[0]?.message?.content || '';
+
+    if (!generatedImage) {
+      return new Response(
+        JSON.stringify({ error: 'No image generated' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
-
-    // Optionally store to Supabase storage
-    let storedUrl: string | null = null;
-    if (supabaseUrl && supabaseKey) {
-      try {
-        const supabase = createClient(supabaseUrl, supabaseKey);
-
-        // Convert base64 data URL to bytes for upload
-        const base64DataMatch = generatedImageUrl.match(/^data:image\/(\w+);base64,(.+)$/);
-        if (base64DataMatch) {
-          const imgBytes = Uint8Array.from(atob(base64DataMatch[2]), c => c.charCodeAt(0));
-          const fileName = `generated/${crypto.randomUUID()}.png`;
-
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from('id-photos')
-            .upload(fileName, imgBytes, { contentType: 'image/png', cacheControl: '3600', upsert: false });
-
-          if (!uploadError && uploadData) {
-            const { data: urlData } = supabase.storage.from('id-photos').getPublicUrl(uploadData.path);
-            storedUrl = urlData.publicUrl;
-            console.log('Stored generated image:', storedUrl);
-          }
-        }
-      } catch (e) {
-        console.log('Storage upload failed (non-fatal):', e.message);
-      }
-    }
-
-    const textContent = aiResult?.choices?.[0]?.message?.content ?? '';
-    const description = `Professional ID photo — ${photoType} body, ${backgroundColor} background`;
 
     return new Response(
-      JSON.stringify({
-        image: generatedImageUrl,
-        stored_url: storedUrl,
-        description,
-        text: textContent,
-      }),
+      JSON.stringify({ image: generatedImage, description }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-
   } catch (error) {
-    console.error('Unhandled error:', error.message);
+    console.error('Error:', error);
     return new Response(
       JSON.stringify({ error: error.message || 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

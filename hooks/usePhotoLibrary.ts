@@ -1,3 +1,10 @@
-import { usePhotoLibraryContext } from '@/contexts/PhotoLibraryContext';
+import { useContext } from 'react';
+import { PhotoLibraryContext } from '@/contexts/PhotoLibraryContext';
 
-export const usePhotoLibrary = () => usePhotoLibraryContext();
+export function usePhotoLibrary() {
+  const context = useContext(PhotoLibraryContext);
+  if (!context) {
+    throw new Error('usePhotoLibrary must be used within PhotoLibraryProvider');
+  }
+  return context;
+}
