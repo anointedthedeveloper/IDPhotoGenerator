@@ -17,6 +17,7 @@ export default function HomeScreen() {
   const {
     selectedImage, photoType, backgroundColor, aspectRatio,
     generatedPhotos, isGenerating, error, needsWatermark,
+    remainingFree, cooldownSeconds, isPro, canGenerate,
     setPhotoType, setBackgroundColor, setAspectRatio,
     handlePickImage, handleGenerate, clearError,
   } = useIDPhotoGenerator();
@@ -47,7 +48,7 @@ export default function HomeScreen() {
         </View>
         <View style={styles.headerBadge}>
           <LinearGradient
-            colors={[colors.primaryGradientStart, colors.accent]}
+          colors={[colors.primary, colors.accent]}
             style={styles.headerBadgeGrad}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
@@ -92,7 +93,15 @@ export default function HomeScreen() {
         onBackgroundColorChange={setBackgroundColor}
         onAspectRatioChange={setAspectRatio}
       />
-      <GenerateButton onPress={handleGenerate} loading={isGenerating} disabled={!selectedImage} />
+      <GenerateButton
+        onPress={handleGenerate}
+        loading={isGenerating}
+        disabled={!selectedImage}
+        remainingFree={remainingFree}
+        cooldownSeconds={cooldownSeconds}
+        isPro={isPro}
+        canGenerate={canGenerate}
+      />
     </>
   );
 
@@ -237,7 +246,7 @@ const styles = StyleSheet.create({
     right: -spacing.lg,
     width: spacing.xxl,
     height: 2,
-    backgroundColor: colors.primaryMid,
+    backgroundColor: colors.primaryLight,
     borderRadius: 1,
   },
 

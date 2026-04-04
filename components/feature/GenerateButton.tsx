@@ -1,110 +1,103 @@
-import { Text, Pressable, ActivityIndicator, StyleSheet, View } from 'react-native';
+import { Text, TouchableOpacity, ActivityIndicator, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, borderRadius, typography, shadows } from '@/constants/theme';
 
 interface GenerateButtonProps {
   onPress: () => void;
   loading: boolean;
   disabled?: boolean;
+  remainingFree?: number;
+  cooldownSeconds?: number;
+  isPro?: boolean;
+  canGenerate?: boolean;
 }
 
-export function GenerateButton({ onPress, loading, disabled }: GenerateButtonProps) {
-  const isDisabled = disabled || loading;
+export function GenerateButton({ onPress, loading, disabled, remainingFree = 0, cooldownSeconds = 0, isPro = false, canGenerate = true }: GenerateButtonProps) {
+  const isDisabled = disabled || loading || !canGenerate;
+  const inCooldown = cooldownSeconds > 0;
+  const hitLimit = !isPro && remainingFree === 0 && !inCooldown;
 
-  if (isDisabled && !loading) {
-    return (
-      <View style={styles.disabledBtn}>
-        <Ionicons name="sparkles-outline" size={20} color={colors.textTertiary} />
-        <Text style={styles.disabledText}>Upload a photo to continue</Text>
-      </View>
-    );
-  }
+  const getLabel = () => {
+    if (loading) return 'Generating...';
+    if (inCooldown) return `Wait ${cooldownSeconds}s`;
+    if (hitLimit) return 'Upgrade to Pro';
+    return 'Generate ID Photo';
+  };
+
+  const getIcon = () => {
+    if (loading) return null;
+    if (inCooldown) return 'time-outline';
+    if (hitLimit) return 'lock-closed-outline';
+    return 'sparkles';
+  };
 
   return (
-    <Pressable
-      style={({ pressed }) => [styles.wrapper, pressed && !isDisabled && styles.pressed]}
-      onPress={onPress}
-      disabled={isDisabled}
-    >
-      <LinearGradient
-        colors={isDisabled ? [colors.border, colors.border] : [colors.primaryGradientStart, colors.primaryGradientEnd]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.gradient}
+    <View style={styles.wrapper}>
+      <TouchableOpacity
+        style={[styles.button, isDisabled && styles.buttonDisabled, hitLimit && styles.buttonLocked, inCooldown && styles.buttonCooldown]}
+        onPress={onPress}
+        disabled={isDisabled}
+        activeOpacity={0.9}
       >
         {loading ? (
           <View style={styles.content}>
-            <ActivityIndicator color="#fff" size="small" />
-            <Text style={styles.text}>Generating your ID photo...</Text>
+            <ActivityIndicator color={colors.surface} size="small" />
+            <Text style={styles.text}>Generating...</Text>
           </View>
         ) : (
           <View style={styles.content}>
-            <Ionicons name="sparkles" size={20} color="#fff" />
-            <Text style={styles.text}>Generate ID Photo</Text>
-            <View style={styles.arrowWrap}>
-              <Ionicons name="arrow-forward" size={16} color="rgba(255,255,255,0.7)" />
-            </View>
+            <Ionicons name={getIcon() as any} size={20} color={colors.surface} />
+            <Text style={styles.text}>{getLabel()}</Text>
           </View>
         )}
-      </LinearGradient>
-    </Pressable>
+      </TouchableOpacity>
+
+      {!isPro && !loading && (
+        <View style={styles.quota}>
+          {inCooldown ? (
+            <View style={styles.quotaRow}>
+              <Ionicons name="time-outline" size={13} color={colors.textTertiary} />
+              <Text style={styles.quotaText}>Cooldown: {cooldownSeconds}s</Text>
+            </View>
+          ) : hitLimit ? (
+            <View style={styles.quotaRow}>
+              <Ionicons name="lock-closed-outline" size={13} color={colors.error} />
+              <Text style={[styles.quotaText, { color: colors.error }]}>Daily limit reached — resets tomorrow</Text>
+            </View>
+          ) : (
+            <View style={styles.quotaRow}>
+              <Ionicons name="images-outline" size={13} color={colors.textTertiary} />
+              <Text style={styles.quotaText}>{remainingFree} free photo{remainingFree !== 1 ? 's' : ''} remaining today</Text>
+            </View>
+          )}
+        </View>
+      )}
+
+      {isPro && !loading && (
+        <View style={styles.quota}>
+          <View style={styles.quotaRow}>
+            <Ionicons name="sparkles" size={13} color={colors.primary} />
+            <Text style={[styles.quotaText, { color: colors.primary }]}>Pro — unlimited generations</Text>
+          </View>
+        </View>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    borderRadius: borderRadius.xl,
-    overflow: 'hidden',
-    ...shadows.brand,
+  wrapper: { paddingHorizontal: spacing.xl, gap: spacing.sm },
+  button: {
+    width: '100%', paddingVertical: spacing.xl,
+    borderRadius: borderRadius.lg, backgroundColor: colors.primary,
+    alignItems: 'center', justifyContent: 'center', ...shadows.md,
   },
-  pressed: {
-    opacity: 0.92,
-    transform: [{ scale: 0.985 }],
-  },
-  gradient: {
-    paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 60,
-  },
-  content: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  text: {
-    ...typography.button,
-    color: '#fff',
-    fontSize: 17,
-    flex: 1,
-    textAlign: 'center',
-  },
-  arrowWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: borderRadius.full,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  disabledBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.xl,
-    borderRadius: borderRadius.xl,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderStyle: 'dashed',
-    backgroundColor: colors.surface,
-    minHeight: 60,
-  },
-  disabledText: {
-    ...typography.bodyMedium,
-    color: colors.textTertiary,
-  },
+  buttonDisabled: { backgroundColor: colors.border, ...shadows.sm },
+  buttonLocked: { backgroundColor: colors.accent },
+  buttonCooldown: { backgroundColor: colors.textTertiary },
+  content: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  text: { ...typography.button, color: colors.surface, fontSize: 17 },
+  quota: { alignItems: 'center' },
+  quotaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  quotaText: { ...typography.caption, color: colors.textTertiary },
 });

@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAlert } from '@/template';
+import { useUserPlan } from '@/contexts/UserPlanContext';
 import { colors, spacing, typography, borderRadius, shadows } from '@/constants/theme';
 
 type PlanFeature = { label: string; included: boolean };
@@ -76,14 +77,22 @@ const plans: Plan[] = [
 export default function PlansScreen() {
   const insets = useSafeAreaInsets();
   const { showAlert } = useAlert();
+  const { isPro, upgradeToPro, resetToFree } = useUserPlan();
 
   const handleCTA = (plan: Plan) => {
     if (plan.id === 'free') {
-      showAlert('Current Plan', 'You are on the Free plan. Upgrade to unlock more features.');
+      showAlert('Current Plan', isPro ? 'You are on Pro.' : 'You are on the Free plan. Upgrade to unlock more features.');
     } else if (plan.id === 'business') {
       Linking.openURL('mailto:anointedthedeveloper@gmail.com?subject=IDPhoto Business Plan Inquiry');
     } else {
-      showAlert('Coming Soon', 'Subscription payments are launching soon. Stay tuned!');
+      showAlert(
+        'Upgrade to Pro',
+        'Payments launching soon! Tap Activate to enable Pro for testing.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Activate Pro', onPress: () => upgradeToPro() },
+        ]
+      );
     }
   };
 
@@ -95,7 +104,7 @@ export default function PlansScreen() {
     >
       {/* Hero */}
       <LinearGradient
-        colors={[colors.primaryGradientStart, colors.accent]}
+        colors={[colors.primary, colors.accent]}
         style={styles.hero}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -150,7 +159,7 @@ export default function PlansScreen() {
             >
               {plan.ctaStyle === 'primary' ? (
                 <LinearGradient
-                  colors={[colors.primaryGradientStart, colors.primaryGradientEnd]}
+                  colors={[colors.primary, colors.primaryDark]}
                   style={styles.ctaGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
@@ -268,7 +277,7 @@ const styles = StyleSheet.create({
   },
   planCardHighlighted: {
     borderColor: colors.primary,
-    ...shadows.brand,
+    ...shadows.md,
   },
   badge: {
     alignSelf: 'flex-start',
@@ -293,7 +302,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 52,
   },
-  ctaPrimary: { ...shadows.brand },
+  ctaPrimary: { ...shadows.md },
   ctaOutline: { borderWidth: 1.5, borderColor: colors.primary, minHeight: 52 },
   ctaGhost: { backgroundColor: colors.borderLight, minHeight: 52 },
   ctaGradient: { width: '100%', paddingVertical: spacing.lg, alignItems: 'center' },

@@ -3,13 +3,14 @@ import { PhotoType, BackgroundColor, AspectRatio, pickImage, convertImageToBase6
 import { generateIDPhoto, GeneratePhotoResult } from '@/services/aiService';
 import { uploadImageToStorage } from '@/services/storageService';
 import { usePhotoLibrary } from './usePhotoLibrary';
-import { useGenerationCount } from './useGenerationCount';
+import { useUserPlan } from '@/contexts/UserPlanContext';
 
 const VIRTUAL_USER_ID = '00000000-0000-0000-0000-000000000000';
 
 export const useIDPhotoGenerator = () => {
   const { addPhoto } = usePhotoLibrary();
-  const { count, increment, needsWatermark } = useGenerationCount();
+  const { canGenerate, needsWatermark, remainingFree, cooldownSeconds, isPro, recordGeneration } = useUserPlan();
+
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [photoType, setPhotoType] = useState<PhotoType>('half');
   const [backgroundColor, setBackgroundColor] = useState<BackgroundColor>('white');
@@ -30,8 +31,19 @@ export const useIDPhotoGenerator = () => {
 
   const handleGenerate = async () => {
     if (!selectedImage) { setError('Please select an image first'); return; }
+
+    if (!canGenerate) {
+      if (cooldownSeconds > 0) {
+        setError(`Please wait ${cooldownSeconds}s before generating again`);
+      } else {
+        setError('You have reached your 3 free photos for today. Upgrade to Pro for unlimited generations.');
+      }
+      return;
+    }
+
     setIsGenerating(true);
     setError(null);
+
     try {
       const base64Image = await convertImageToBase64(selectedImage);
       const { data, error: genError } = await generateIDPhoto({ image: base64Image, photoType, backgroundColor, aspectRatio });
@@ -53,7 +65,7 @@ export const useIDPhotoGenerator = () => {
       });
       if (saveError || !savedPhoto) { setError(saveError || 'Failed to save photo to library'); return; }
 
-      await increment();
+      await recordGeneration();
 
       setGeneratedPhotos(prev => [{ image: generatedUrl, description: data.description }, ...prev]);
     } catch (err) {
@@ -65,8 +77,8 @@ export const useIDPhotoGenerator = () => {
 
   return {
     selectedImage, photoType, backgroundColor, aspectRatio,
-    generatedPhotos, isGenerating, error, needsWatermark,
-    generationCount: count,
+    generatedPhotos, isGenerating, error,
+    needsWatermark, remainingFree, cooldownSeconds, isPro, canGenerate,
     setPhotoType, setBackgroundColor, setAspectRatio,
     handlePickImage, handleGenerate,
     clearError: () => setError(null),

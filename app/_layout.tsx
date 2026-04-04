@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
 import { AlertProvider } from '@/template';
 import { PhotoLibraryProvider } from '@/contexts/PhotoLibraryContext';
+import { UserPlanProvider } from '@/contexts/UserPlanContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -18,15 +19,17 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <StatusBar style="dark" backgroundColor="#F9FBFF" translucent={false} />
       <AlertProvider>
-        <PhotoLibraryProvider>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="index" />
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="auth/login" options={{ presentation: 'modal' }} />
-            <Stack.Screen name="auth/register" options={{ presentation: 'modal' }} />
-            <Stack.Screen name="auth/verify" options={{ presentation: 'modal' }} />
-          </Stack>
-        </PhotoLibraryProvider>
+        <UserPlanProvider>
+          <PhotoLibraryProvider>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="index" />
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="auth/login" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="auth/register" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="auth/verify" options={{ presentation: 'modal' }} />
+            </Stack>
+          </PhotoLibraryProvider>
+        </UserPlanProvider>
       </AlertProvider>
     </SafeAreaProvider>
   );
