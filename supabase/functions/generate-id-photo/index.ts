@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
 
       try {
         const response = await fetch(
-          `https://api-inference.huggingface.co/models/${model}`,
+          `https://router.huggingface.co/hf-inference/models/${model}`,
           {
             method: 'POST',
             headers: {
