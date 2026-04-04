@@ -1,12 +1,23 @@
 import { corsHeaders } from '../_shared/cors.ts';
 
+// Deno-compatible base64 decode
+function base64ToUint8Array(base64: string): Uint8Array {
+  const binaryString = atob(base64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    const { image, photoType, backgroundColor, aspectRatio } = await req.json();
+    const body = await req.json();
+    const { image, photoType = 'half', backgroundColor = 'white' } = body;
 
     if (!image) {
       return new Response(
@@ -16,7 +27,12 @@ Deno.serve(async (req) => {
     }
 
     const apiKey = Deno.env.get('HF_TOKEN');
-    if (!apiKey) throw new Error('HF_TOKEN is not configured');
+    if (!apiKey) {
+      return new Response(
+        JSON.stringify({ error: 'HF_TOKEN secret not configured' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     const bgDesc = backgroundColor === 'white' ? 'pure white background'
       : backgroundColor === 'gray' ? 'neutral gray background'
@@ -27,64 +43,48 @@ Deno.serve(async (req) => {
       : 'half body portrait, head and shoulders';
 
     const prompt = `professional ID photo, ${frameDesc}, formal business attire, ${bgDesc}, studio lighting, sharp focus, passport photo quality, centered, looking at camera, photorealistic`;
-    const negativePrompt = 'cartoon, blurry, dark, casual clothes, sunglasses, hat, watermark, text, low quality';
 
-    // Extract base64 data
+    // Extract base64
     const base64Match = image.match(/^data:image\/(\w+);base64,(.+)$/);
-    const base64Data = base64Match ? base64Match[2] : image;
-    const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-
-    // Use multipart/form-data with correct field name for img2img
-    const boundary = '----FormBoundary' + Math.random().toString(36).slice(2);
-
-    const encoder = new TextEncoder();
-    const parts: Uint8Array[] = [];
-
-    const addField = (name: string, value: string) => {
-      parts.push(encoder.encode(
-        `--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`
-      ));
-    };
-
-    addField('prompt', prompt);
-    addField('negative_prompt', negativePrompt);
-    addField('strength', '0.65');
-    addField('guidance_scale', '7.5');
-    addField('num_inference_steps', '25');
-
-    // Add image file part
-    parts.push(encoder.encode(
-      `--${boundary}\r\nContent-Disposition: form-data; name="image"; filename="photo.jpg"\r\nContent-Type: image/jpeg\r\n\r\n`
-    ));
-    parts.push(binaryData);
-    parts.push(encoder.encode(`\r\n--${boundary}--\r\n`));
-
-    // Combine all parts
-    const totalLength = parts.reduce((sum, p) => sum + p.length, 0);
-    const body = new Uint8Array(totalLength);
-    let offset = 0;
-    for (const part of parts) {
-      body.set(part, offset);
-      offset += part.length;
+    if (!base64Match) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid image format, expected base64 data URL' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
+    const mimeType = `image/${base64Match[1]}`;
+    const base64Data = base64Match[2];
+    const imageBytes = base64ToUint8Array(base64Data);
+    const imageBlob = new Blob([imageBytes], { type: mimeType });
 
-    // Try img2img first
+    console.log('Calling HuggingFace img2img, image size:', imageBytes.length, 'bytes');
+
+    // Build multipart form
+    const form = new FormData();
+    form.append('inputs', imageBlob, 'photo.jpg');
+    form.append('parameters', JSON.stringify({
+      prompt,
+      negative_prompt: 'cartoon, blurry, dark, casual clothes, sunglasses, hat, watermark, text, low quality',
+      strength: 0.65,
+      guidance_scale: 7.5,
+      num_inference_steps: 20,
+    }));
+
     let response = await fetch(
       'https://api-inference.huggingface.co/models/runwayml/stable-diffusion-v1-5',
       {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': `multipart/form-data; boundary=${boundary}`,
-        },
-        body,
+        headers: { 'Authorization': `Bearer ${apiKey}` },
+        body: form,
       }
     );
 
-    // Fallback to text-to-image JSON API
+    console.log('img2img status:', response.status);
+
+    // Fallback to text2img
     if (!response.ok) {
       const errText = await response.text();
-      console.log('img2img failed:', errText, '— falling back to text2img');
+      console.log('img2img failed:', errText, '— trying text2img fallback');
 
       response = await fetch(
         'https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0',
@@ -97,38 +97,49 @@ Deno.serve(async (req) => {
           body: JSON.stringify({
             inputs: prompt,
             parameters: {
-              negative_prompt: negativePrompt,
-              num_inference_steps: 25,
+              negative_prompt: 'cartoon, blurry, dark, casual clothes, watermark, text, low quality',
+              num_inference_steps: 20,
               guidance_scale: 7.5,
             },
           }),
         }
       );
+
+      console.log('text2img status:', response.status);
     }
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Final HF error:', errorText);
+      console.error('All HF attempts failed:', errorText);
       return new Response(
-        JSON.stringify({ error: `Generation failed: ${errorText}` }),
+        JSON.stringify({ error: `HuggingFace error: ${errorText}` }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const contentType = response.headers.get('content-type') ?? '';
+    console.log('Response content-type:', contentType);
+
+    // Check if HF returned a JSON error
     if (contentType.includes('application/json')) {
       const json = await response.json();
-      if (json.error) {
-        return new Response(
-          JSON.stringify({ error: json.error }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+      console.error('HF JSON error response:', JSON.stringify(json));
+      return new Response(
+        JSON.stringify({ error: json.error ?? JSON.stringify(json) }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const imageBuffer = await response.arrayBuffer();
-    const resultBase64 = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
+    const bytes = new Uint8Array(imageBuffer);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const resultBase64 = btoa(binary);
     const outputMime = contentType.includes('png') ? 'image/png' : 'image/jpeg';
+
+    console.log('Success! Output size:', bytes.length, 'bytes');
 
     return new Response(
       JSON.stringify({
@@ -139,7 +150,7 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Unhandled error:', error);
     return new Response(
       JSON.stringify({ error: error.message || 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
