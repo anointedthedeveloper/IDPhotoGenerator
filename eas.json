@@ -11,7 +11,8 @@
     "preview": {
       "distribution": "internal",
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
       },
       "env": {
         "NPM_FLAGS": "--legacy-peer-deps",
@@ -20,7 +21,15 @@
       }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "NPM_FLAGS": "--legacy-peer-deps",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://mxdjwnbfypwjdzmcpwhp.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_2121-1hDTUOF-ilc9GU7lA_cRndEuSJ"
+      }
     }
   },
   "submit": {
