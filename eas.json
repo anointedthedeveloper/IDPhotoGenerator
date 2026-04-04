@@ -13,7 +13,7 @@
       "android": {
         "buildType": "apk",
         "gradleCommand": ":app:assembleRelease",
-        "artifactPath": "android/app/build/outputs/apk/release/IDPhoto-AI.apk"
+        "applicationArchivePath": "android/app/build/outputs/apk/release/IDPhoto-AI.apk"
       },
       "env": {
         "NPM_FLAGS": "--legacy-peer-deps",
