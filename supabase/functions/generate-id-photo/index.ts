@@ -22,6 +22,8 @@ Deno.serve(async (req) => {
     }
 
     const hfKey = Deno.env.get('HF_TOKEN');
+    const geminiKey = Deno.env.get('GEMINI_API_KEY');
+
     if (!hfKey) {
       return new Response(JSON.stringify({ error: 'HF_TOKEN not configured' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
@@ -33,67 +35,88 @@ Deno.serve(async (req) => {
 
     const mimeType = `image/${base64Match[1]}`;
     const base64Data = base64Match[2];
-    const imageBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-    const imageBlob = new Blob([imageBytes], { type: mimeType });
 
     const bgDesc = backgroundColor === 'white' ? 'plain white' : backgroundColor === 'gray' ? 'neutral gray' : 'light blue';
-    const frameDesc = photoType === 'full' ? 'full body standing straight' : 'half body, head and shoulders';
+    const frameDesc = photoType === 'full' ? 'full body standing straight, head to toe' : 'half body portrait, head and shoulders, waist up';
 
-    // Mega prompt — very specific to preserve face
-    const prompt = `professional passport ID photo of the same person, preserve exact face skin tone ethnicity age, ${frameDesc}, navy blue business suit white shirt tie, ${bgDesc} background, front facing, neutral expression, studio lighting, sharp focus, photorealistic, high quality`;
-    const negativePrompt = 'different person, different face, different skin color, cartoon, blurry, casual clothes, sunglasses, hat, watermark, text, low quality, deformed, ugly';
+    // Step 1: Use Gemini vision to describe the person's appearance
+    let personDescription = 'young adult person';
+    if (geminiKey) {
+      try {
+        console.log('Extracting face description with Gemini...');
+        const visionRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{
+                parts: [
+                  { text: 'Describe this person in 1 sentence for an AI image generator. Include: gender, approximate age, skin tone, hair color and style, facial features. Be specific and concise. Example: "young Black male, early 20s, dark skin, short black hair, smiling face"' },
+                  { inline_data: { mime_type: mimeType, data: base64Data } },
+                ],
+              }],
+            }),
+          }
+        );
+        if (visionRes.ok) {
+          const visionResult = await visionRes.json();
+          const desc = visionResult.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (desc) {
+            personDescription = desc.trim().replace(/\n/g, ' ');
+            console.log('Person description:', personDescription);
+          }
+        }
+      } catch (e) {
+        console.log('Vision description failed:', e.message);
+      }
+    }
 
-    console.log('Image size:', imageBytes.length, 'bytes');
+    // Step 2: Generate ID photo with FLUX using the person description
+    const prompt = `professional passport ID photo, ${personDescription}, ${frameDesc}, navy blue business suit, white shirt, tie, ${bgDesc} background, front facing, neutral expression, soft studio lighting, sharp focus, photorealistic, high quality, 4k`;
+    const negativePrompt = 'cartoon, anime, blurry, casual clothes, sunglasses, hat, watermark, text, low quality, deformed, multiple people, crowd';
 
-    // Models to try in order — all support img2img
+    console.log('Generating with FLUX, prompt:', prompt.substring(0, 100));
+
     const models = [
-      { id: 'lllyasviel/control_v11p_sd15_openpose', strength: 0.3 },
-      { id: 'timbrooks/instruct-pix2pix', strength: 0.2 },
-      { id: 'stabilityai/stable-diffusion-xl-refiner-1.0', strength: 0.25 },
+      'black-forest-labs/FLUX.1-schnell',
+      'stabilityai/stable-diffusion-xl-base-1.0',
     ];
 
-    for (const { id, strength } of models) {
-      console.log('Trying:', id, 'strength:', strength);
+    for (const model of models) {
+      console.log('Trying:', model);
       try {
-        const form = new FormData();
-        form.append('inputs', imageBlob, 'photo.jpg');
-        form.append('parameters', JSON.stringify({
-          prompt,
-          negative_prompt: negativePrompt,
-          strength,
-          guidance_scale: 12,
-          image_guidance_scale: 1.0,
-          num_inference_steps: 50,
-        }));
-
         const res = await fetch(
-          `https://router.huggingface.co/hf-inference/models/${id}`,
+          `https://router.huggingface.co/hf-inference/models/${model}`,
           {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${hfKey}`,
+              'Content-Type': 'application/json',
               'x-wait-for-model': 'true',
             },
-            body: form,
+            body: JSON.stringify({
+              inputs: prompt,
+              parameters: {
+                negative_prompt: negativePrompt,
+                num_inference_steps: 25,
+                guidance_scale: 7.5,
+                width: 512,
+                height: 680,
+              },
+            }),
           }
         );
 
-        console.log(id, 'status:', res.status);
-        if (!res.ok) {
-          const e = await res.text();
-          console.log(id, 'failed:', e.substring(0, 200));
-          continue;
-        }
+        console.log(model, 'status:', res.status);
+        if (!res.ok) { const e = await res.text(); console.log(model, 'failed:', e.substring(0, 150)); continue; }
 
         const bytes = new Uint8Array(await res.arrayBuffer());
-        const preview = new TextDecoder().decode(bytes.slice(0, 80));
-        if (preview.trimStart().startsWith('{')) {
-          console.log(id, 'returned JSON error:', preview);
-          continue;
-        }
+        const preview = new TextDecoder().decode(bytes.slice(0, 50));
+        if (preview.trimStart().startsWith('{')) { console.log(model, 'JSON error:', preview); continue; }
 
         const ct = res.headers.get('content-type') ?? '';
-        console.log('Success:', id, bytes.length, 'bytes');
+        console.log('Success:', model, bytes.length, 'bytes');
 
         return new Response(
           JSON.stringify({
@@ -102,15 +125,14 @@ Deno.serve(async (req) => {
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
-
       } catch (e) {
-        console.log(id, 'exception:', e.message);
+        console.log(model, 'exception:', e.message);
         continue;
       }
     }
 
     return new Response(
-      JSON.stringify({ error: 'Generation failed. Models may be loading — please try again in 30 seconds.' }),
+      JSON.stringify({ error: 'Generation failed. Please try again in 30 seconds.' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
