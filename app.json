@@ -13,23 +13,7 @@
       "backgroundColor": "#4F7CFF"
     },
     "newArchEnabled": true,
-    "description": "Transform any photo into a professional ID photo with AI. Supports passport, visa, and ID card formats. Developed by anointedthedeveloper, powered by Anobyte.",
-    "keywords": [
-      "id photo",
-      "ai photo",
-      "passport photo",
-      "id generator",
-      "professional photo",
-      "anointedthedeveloper",
-      "anointed the developer",
-      "anointed agunloye",
-      "agunloye",
-      "agunloyea",
-      "anointed",
-      "anobyte",
-      "anobyte website",
-      "anobyte online"
-    ],
+    "description": "Transform any photo into a professional ID photo with AI. Supports passport, visa, and ID card formats.",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "online.anobyte.idphoto",
@@ -38,7 +22,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/logo.png",
-        "backgroundColor": "#3B82F6"
+        "backgroundColor": "#4F7CFF"
       },
       "edgeToEdgeEnabled": true,
       "softwareKeyboardLayoutMode": "pan",
@@ -48,32 +32,13 @@
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.INTERNET"
       ],
-      "notification": {
-        "icon": "./assets/logo.png",
-        "color": "#4F7CFF",
-        "androidMode": "default",
-        "androidCollapsedTitle": "IDPhoto AI"
-      },
       "package": "online.anobyte.idphoto",
       "versionCode": 1
     },
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/favicon.png",
-      "meta": {
-        "description": "Transform any photo into a professional ID photo with AI. Supports passport, visa, and ID card formats. Developed by anointedthedeveloper (Anointed Agunloye), powered by Anobyte.",
-        "keywords": "id photo generator, ai photo, passport photo, anointed agunloye, anointedthedeveloper, anointed the developer, agunloye, agunloyea, anointed, anobyte, anobyte website, anobyte online, id card photo, visa photo, professional id photo",
-        "author": "Anointed Agunloye (anointedthedeveloper)",
-        "og:title": "IDPhoto AI - Professional ID Photo Generator",
-        "og:description": "Generate professional ID photos instantly with AI. Passport, visa, and ID card formats. Powered by Anobyte.",
-        "og:type": "website",
-        "twitter:card": "summary_large_image",
-        "twitter:title": "IDPhoto AI - Professional ID Photo Generator",
-        "twitter:description": "Generate professional ID photos instantly with AI. Powered by Anobyte.",
-        "robots": "index, follow",
-        "language": "English"
-      }
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-router",
@@ -83,7 +48,7 @@
           "image": "./assets/logo.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#4F7CFF"
         }
       ],
       "expo-web-browser"
@@ -92,16 +57,6 @@
       "typedRoutes": true
     },
     "extra": {
-      "developer": {
-        "name": "Anointed Agunloye",
-        "github": "https://github.com/anointedthedeveloper",
-        "alias": "anointedthedeveloper"
-      },
-      "company": {
-        "name": "Anobyte",
-        "website": "https://anobyte.online",
-        "email": "hello@anobyte.online"
-      },
       "router": {},
       "eas": {
         "projectId": "1afedfb5-0ffa-42a4-b7ba-a75ff15a95c9"
