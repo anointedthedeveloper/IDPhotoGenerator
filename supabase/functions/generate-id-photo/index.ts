@@ -1,4 +1,5 @@
 import { corsHeaders } from '../_shared/cors.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -12,9 +13,12 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Image is required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const replicateKey = Deno.env.get('REPLICATE_API_TOKEN');
-    if (!replicateKey) {
-      return new Response(JSON.stringify({ error: 'REPLICATE_API_TOKEN not configured' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    const stablecogKey = Deno.env.get('STABLECOG_API_KEY');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    if (!stablecogKey) {
+      return new Response(JSON.stringify({ error: 'STABLECOG_API_KEY not configured' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     const base64Match = image.match(/^data:image\/(\w+);base64,(.+)$/);
@@ -22,76 +26,80 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Invalid image format' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
+    const mimeType = `image/${base64Match[1]}`;
+    const base64Data = base64Match[2];
+    const imageBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+
+    // Upload to Supabase storage to get a public URL
+    let initImageUrl: string | null = null;
+    if (supabaseUrl && supabaseKey) {
+      try {
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        const filename = `temp/init_${Date.now()}.jpg`;
+        const { data, error } = await supabase.storage
+          .from('id-photos')
+          .upload(filename, imageBytes, { contentType: mimeType, upsert: true });
+
+        if (!error && data) {
+          const { data: urlData } = supabase.storage.from('id-photos').getPublicUrl(data.path);
+          initImageUrl = urlData.publicUrl;
+          console.log('Uploaded init image:', initImageUrl);
+        }
+      } catch (e) {
+        console.log('Upload failed:', e.message);
+      }
+    }
+
     const bgDesc = backgroundColor === 'white' ? 'plain white' : backgroundColor === 'gray' ? 'neutral gray' : 'light blue';
     const frameDesc = photoType === 'full'
       ? 'full body standing straight, head to toe, hands at sides'
-      : 'half body portrait, head and shoulders, waist up, no hands visible';
+      : 'half body portrait, head and shoulders, waist up';
 
     const prompt = `professional passport ID photo of the same person, preserve exact face skin tone ethnicity age, ${frameDesc}, navy blue business suit, white shirt, tie, ${bgDesc} background, front facing, neutral expression, soft studio lighting, sharp focus, photorealistic, high quality`;
-    const negativePrompt = 'different person, different face, different skin tone, cartoon, blurry, casual clothes, sunglasses, hat, watermark, text, low quality, deformed';
 
-    // Upload image as data URI — Replicate accepts base64 data URIs directly
-    const imageDataUri = image;
+    const requestBody: any = {
+      prompt,
+      guidance_scale: 10,
+      inference_steps: 40,
+      width: 512,
+      height: 680,
+    };
 
-    console.log('Starting Replicate prediction...');
+    if (initImageUrl) {
+      requestBody.init_image_url = initImageUrl;
+      requestBody.prompt_strength = 0.3;
+      console.log('Using img2img with init_image_url');
+    } else {
+      console.log('No init image URL, using text2img');
+    }
 
-    // Create prediction using SDXL refiner (img2img)
-    const createRes = await fetch('https://api.replicate.com/v1/predictions', {
+    console.log('Calling Stablecog...');
+    const res = await fetch('https://api.stablecog.com/v1/image/generation/create', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${replicateKey}`,
+        'Authorization': `Bearer ${stablecogKey}`,
         'Content-Type': 'application/json',
-        'Prefer': 'wait=60',
       },
-      body: JSON.stringify({
-        version: '7762fd07cf82c948538e41f63f77d685e02b063e37e496e96eefd46c929f9bdc',
-        input: {
-          image: imageDataUri,
-          prompt,
-          negative_prompt: negativePrompt,
-          strength: 0.35,
-          num_inference_steps: 50,
-          guidance_scale: 7.5,
-        },
-      }),
+      body: JSON.stringify(requestBody),
     });
 
-    console.log('Replicate create status:', createRes.status);
+    console.log('Stablecog status:', res.status);
 
-    if (!createRes.ok) {
-      const err = await createRes.text();
-      console.error('Replicate create error:', err);
-      return new Response(JSON.stringify({ error: `Replicate error: ${err}` }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    if (!res.ok) {
+      const err = await res.text();
+      console.error('Stablecog error:', err);
+      return new Response(JSON.stringify({ error: `Stablecog error: ${err}` }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    let prediction = await createRes.json();
-    console.log('Prediction status:', prediction.status, 'id:', prediction.id);
+    const result = await res.json();
+    console.log('Stablecog result:', JSON.stringify(result).substring(0, 200));
 
-    // Poll until done (max 120 seconds)
-    let attempts = 0;
-    while (prediction.status !== 'succeeded' && prediction.status !== 'failed' && attempts < 40) {
-      await new Promise(r => setTimeout(r, 3000));
-      const pollRes = await fetch(`https://api.replicate.com/v1/predictions/${prediction.id}`, {
-        headers: { 'Authorization': `Bearer ${replicateKey}` },
-      });
-      prediction = await pollRes.json();
-      console.log('Poll attempt', attempts + 1, 'status:', prediction.status);
-      attempts++;
+    const outputUrl = result.outputs?.[0]?.image_url;
+    if (!outputUrl) {
+      return new Response(JSON.stringify({ error: 'No image in response' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    if (prediction.status === 'failed') {
-      return new Response(JSON.stringify({ error: `Generation failed: ${prediction.error}` }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
-
-    if (prediction.status !== 'succeeded' || !prediction.output) {
-      return new Response(JSON.stringify({ error: 'Generation timed out. Please try again.' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
-
-    // prediction.output is a URL or array of URLs
-    const outputUrl = Array.isArray(prediction.output) ? prediction.output[0] : prediction.output;
-    console.log('Output URL:', outputUrl);
-
-    // Download the image and convert to base64
+    // Download and convert to base64
     const imgRes = await fetch(outputUrl);
     const imgBytes = new Uint8Array(await imgRes.arrayBuffer());
     let binary = '';
@@ -101,6 +109,8 @@ Deno.serve(async (req) => {
     }
     const resultBase64 = btoa(binary);
     const ct = imgRes.headers.get('content-type') ?? 'image/jpeg';
+
+    console.log('Success! Credits remaining:', result.remaining_credits);
 
     return new Response(
       JSON.stringify({
