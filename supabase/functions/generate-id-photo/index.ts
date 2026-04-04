@@ -1,14 +1,5 @@
 import { corsHeaders } from '../_shared/cors.ts';
 
-function uint8ArrayToBase64(bytes: Uint8Array): string {
-  let binary = '';
-  const chunkSize = 8192;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-  }
-  return btoa(binary);
-}
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -21,11 +12,9 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Image is required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const hfKey = Deno.env.get('HF_TOKEN');
-    const geminiKey = Deno.env.get('GEMINI_API_KEY');
-
-    if (!hfKey) {
-      return new Response(JSON.stringify({ error: 'HF_TOKEN not configured' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    const replicateKey = Deno.env.get('REPLICATE_API_TOKEN');
+    if (!replicateKey) {
+      return new Response(JSON.stringify({ error: 'REPLICATE_API_TOKEN not configured' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     const base64Match = image.match(/^data:image\/(\w+);base64,(.+)$/);
@@ -33,114 +22,96 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Invalid image format' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const mimeType = `image/${base64Match[1]}`;
-    const base64Data = base64Match[2];
-
     const bgDesc = backgroundColor === 'white' ? 'plain white' : backgroundColor === 'gray' ? 'neutral gray' : 'light blue';
-    const frameDesc = photoType === 'full' ? 'full body standing straight, head to toe' : 'half body portrait, head and shoulders, waist up';
+    const frameDesc = photoType === 'full'
+      ? 'full body standing straight, head to toe, hands at sides'
+      : 'half body portrait, head and shoulders, waist up, no hands visible';
 
-    // Step 1: Use Gemini vision to describe the person's appearance
-    let personDescription = 'young adult person';
-    if (geminiKey) {
-      try {
-        console.log('Extracting face description with Gemini...');
-        const visionRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{
-                parts: [
-                  { text: 'Describe this person in detail for an AI image generator. Be very specific about: 1) gender 2) exact age range 3) skin tone (e.g. dark brown, light brown, fair, pale) 4) hair color, length and style 5) face shape 6) any distinctive features. Format: single sentence, comma separated. Example: "young Black male, early 20s, very dark brown skin, short natural black hair, round face, bright smile"' },
-                  { inline_data: { mime_type: mimeType, data: base64Data } },
-                ],
-              }],
-            }),
-          }
-        );
-        if (visionRes.ok) {
-          const visionResult = await visionRes.json();
-          const desc = visionResult.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (desc) {
-            personDescription = desc.trim().replace(/\n/g, ' ');
-            console.log('Person description:', personDescription);
-          }
-        }
-      } catch (e) {
-        console.log('Vision description failed:', e.message);
-      }
+    const prompt = `professional passport ID photo of the same person, preserve exact face skin tone ethnicity age, ${frameDesc}, navy blue business suit, white shirt, tie, ${bgDesc} background, front facing, neutral expression, soft studio lighting, sharp focus, photorealistic, high quality`;
+    const negativePrompt = 'different person, different face, different skin tone, cartoon, blurry, casual clothes, sunglasses, hat, watermark, text, low quality, deformed';
+
+    // Upload image as data URI — Replicate accepts base64 data URIs directly
+    const imageDataUri = image;
+
+    console.log('Starting Replicate prediction...');
+
+    // Create prediction using SDXL refiner (img2img)
+    const createRes = await fetch('https://api.replicate.com/v1/predictions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${replicateKey}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'wait=60',
+      },
+      body: JSON.stringify({
+        version: '7762fd07cf82c948538e41f63f77d685e02b063e37e496e96eefd46c929f9bdc',
+        input: {
+          image: imageDataUri,
+          prompt,
+          negative_prompt: negativePrompt,
+          strength: 0.35,
+          num_inference_steps: 50,
+          guidance_scale: 7.5,
+        },
+      }),
+    });
+
+    console.log('Replicate create status:', createRes.status);
+
+    if (!createRes.ok) {
+      const err = await createRes.text();
+      console.error('Replicate create error:', err);
+      return new Response(JSON.stringify({ error: `Replicate error: ${err}` }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // Step 2: Generate ID photo with FLUX using the person description
-    const prompt = `professional passport ID photo, ${personDescription}, ${frameDesc}, navy blue business suit, white shirt, tie, ${bgDesc} background, front facing, neutral expression, soft studio lighting, sharp focus, photorealistic, high quality, 4k, same skin tone as described, preserve ethnicity and race`;
-    const negativePrompt = 'cartoon, anime, blurry, casual clothes, sunglasses, hat, watermark, text, low quality, deformed, multiple people, crowd';
+    let prediction = await createRes.json();
+    console.log('Prediction status:', prediction.status, 'id:', prediction.id);
 
-    console.log('Generating with FLUX, prompt:', prompt.substring(0, 100));
-
-    const models = [
-      'black-forest-labs/FLUX.1-schnell',
-      'stabilityai/stable-diffusion-xl-base-1.0',
-    ];
-
-    for (const model of models) {
-      console.log('Trying:', model);
-      try {
-        const res = await fetch(
-          `https://router.huggingface.co/hf-inference/models/${model}`,
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${hfKey}`,
-              'Content-Type': 'application/json',
-              'x-wait-for-model': 'true',
-            },
-            body: JSON.stringify({
-              inputs: prompt,
-              parameters: {
-                negative_prompt: negativePrompt,
-                num_inference_steps: 25,
-                guidance_scale: 7.5,
-                width: 512,
-                height: 680,
-              },
-            }),
-          }
-        );
-
-        console.log(model, 'status:', res.status);
-        if (!res.ok) { const e = await res.text(); console.log(model, 'failed:', e.substring(0, 150)); continue; }
-
-        const bytes = new Uint8Array(await res.arrayBuffer());
-        const preview = new TextDecoder().decode(bytes.slice(0, 50));
-        if (preview.trimStart().startsWith('{')) { console.log(model, 'JSON error:', preview); continue; }
-
-        const ct = res.headers.get('content-type') ?? '';
-        console.log('Success:', model, bytes.length, 'bytes');
-
-        return new Response(
-          JSON.stringify({
-            image: `data:${ct.includes('png') ? 'image/png' : 'image/jpeg'};base64,${uint8ArrayToBase64(bytes)}`,
-            description: `Professional ID photo — ${photoType} body, ${backgroundColor} background`,
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      } catch (e) {
-        console.log(model, 'exception:', e.message);
-        continue;
-      }
+    // Poll until done (max 120 seconds)
+    let attempts = 0;
+    while (prediction.status !== 'succeeded' && prediction.status !== 'failed' && attempts < 40) {
+      await new Promise(r => setTimeout(r, 3000));
+      const pollRes = await fetch(`https://api.replicate.com/v1/predictions/${prediction.id}`, {
+        headers: { 'Authorization': `Bearer ${replicateKey}` },
+      });
+      prediction = await pollRes.json();
+      console.log('Poll attempt', attempts + 1, 'status:', prediction.status);
+      attempts++;
     }
+
+    if (prediction.status === 'failed') {
+      return new Response(JSON.stringify({ error: `Generation failed: ${prediction.error}` }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    if (prediction.status !== 'succeeded' || !prediction.output) {
+      return new Response(JSON.stringify({ error: 'Generation timed out. Please try again.' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // prediction.output is a URL or array of URLs
+    const outputUrl = Array.isArray(prediction.output) ? prediction.output[0] : prediction.output;
+    console.log('Output URL:', outputUrl);
+
+    // Download the image and convert to base64
+    const imgRes = await fetch(outputUrl);
+    const imgBytes = new Uint8Array(await imgRes.arrayBuffer());
+    let binary = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < imgBytes.length; i += chunkSize) {
+      binary += String.fromCharCode(...imgBytes.subarray(i, i + chunkSize));
+    }
+    const resultBase64 = btoa(binary);
+    const ct = imgRes.headers.get('content-type') ?? 'image/jpeg';
 
     return new Response(
-      JSON.stringify({ error: 'Generation failed. Please try again in 30 seconds.' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({
+        image: `data:${ct};base64,${resultBase64}`,
+        description: `Professional ID photo — ${photoType} body, ${backgroundColor} background`,
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
     console.error('Unhandled error:', error.message);
-    return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({ error: error.message || 'Internal server error' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 });
