@@ -1,6 +1,7 @@
 import { corsHeaders } from '../_shared/cors.ts';
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -15,76 +16,83 @@ Deno.serve(async (req) => {
       );
     }
 
-    const apiKey = Deno.env.get('GEMINI_API_KEY');
-    if (!apiKey) {
-      throw new Error('GEMINI_API_KEY is not configured');
+    // Build system prompt based on user selections
+    const systemPrompt = `You are an ID photo generator. Your task is to transform the input image into a professional ID photo with the following requirements:
+
+1. Change the person's wearing to suit a professional ID photo (formal attire).
+2. The proportions of people in the generated image should follow the normal proportions of ID photos.
+3. Photo type: ${photoType === 'full' ? 'Full body - showing the entire person from head to feet, including legs and shoes. The person should be standing straight with their full body visible in the frame' : 'Half body - head and upper torso only, typically from waist up'}.
+4. Background color: ${backgroundColor} (solid, clean background).
+5. Ensure proper lighting, centered composition, and professional appearance.
+6. Keep the person's face clearly visible and well-lit.`;
+
+    const userPrompt = `Transform this photo into a professional ID photo following all the requirements.`;
+
+    console.log('Generating ID photo with settings:', { photoType, backgroundColor, aspectRatio });
+
+    // Call OnSpace AI service
+    const baseUrl = Deno.env.get('ONSPACE_AI_BASE_URL');
+    const apiKey = Deno.env.get('ONSPACE_AI_API_KEY');
+
+    if (!baseUrl || !apiKey) {
+      throw new Error('AI service not configured');
     }
 
-    // Extract base64 data from data URL
-    const base64Match = image.match(/^data:image\/(\w+);base64,(.+)$/);
-    const mimeType = base64Match ? `image/${base64Match[1]}` : 'image/jpeg';
-    const base64Data = base64Match ? base64Match[2] : image;
-
-    const prompt = `Transform this photo into a professional ID photo with these requirements:
-- Photo type: ${photoType === 'full' ? 'Full body - entire person from head to feet, standing straight' : 'Half body - head and upper torso from waist up'}
-- Background: solid ${backgroundColor} background, clean and plain
-- Attire: formal professional clothing suitable for an official ID
-- Lighting: even, well-lit face, no harsh shadows
-- Composition: centered, straight posture, looking at camera
-- Style: passport/visa/ID card quality photo
-Keep the person's face and identity exactly the same. Only change background, clothing if needed, and framing.`;
-
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: prompt },
-                { inline_data: { mime_type: mimeType, data: base64Data } },
-              ],
-            },
-          ],
-          generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
-        }),
-      }
-    );
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash-image',
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt,
+          },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: userPrompt },
+              { type: 'image_url', image_url: { url: image } },
+            ],
+          },
+        ],
+        modalities: ['image', 'text'],
+        image_config: {
+          aspect_ratio: aspectRatio,
+        },
+      }),
+    });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Gemini API Error:', errorText);
+      console.error('AI API Error:', errorText);
       return new Response(
-        JSON.stringify({ error: `Gemini API error: ${errorText}` }),
+        JSON.stringify({ error: `AI service error: ${errorText}` }),
         { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const result = await response.json();
+    console.log('AI response received');
 
-    // Extract image and text from Gemini response
-    const parts = result.candidates?.[0]?.content?.parts ?? [];
-    const imagePart = parts.find((p: any) => p.inlineData);
-    const textPart = parts.find((p: any) => p.text);
+    // Extract image from response
+    const generatedImage = result.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    const description = result.choices?.[0]?.message?.content || '';
 
-    if (!imagePart) {
-      console.error('No image in Gemini response:', JSON.stringify(result));
+    if (!generatedImage) {
       return new Response(
-        JSON.stringify({ error: 'No image generated by Gemini' }),
+        JSON.stringify({ error: 'No image generated' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    const generatedImage = `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
-    const description = textPart?.text ?? 'Professional ID photo generated';
 
     return new Response(
       JSON.stringify({ image: generatedImage, description }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-
   } catch (error) {
     console.error('Error:', error);
     return new Response(
