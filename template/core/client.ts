@@ -27,7 +27,7 @@ class SupabaseManager {
       console.log(`[Template:Client] Creating Supabase client instance #${this.creationCount}`);
       
       const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? 'https://mxdjwnbfypwjdzmcpwhp.supabase.co';
-      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? 'sb_publishable_2121-1hDTUOF-ilc9GU7lA_cRndEuSJ';
+      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14ZGp3bmJmeXB3amR6bWNwd2hwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyNzg3MzQsImV4cCI6MjA5MDg1NDczNH0.IoQLO9uMDN2ADhIpySUYHqE6wdXGo8q8sJV7q93XrTY';
       
       if (this.creationCount > 1) {
         console.warn(`[Template:Client] ⚠️ Multiple client creation detected! This is creation #${this.creationCount}`);

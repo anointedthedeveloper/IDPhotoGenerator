@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IDPhoto AI — API Test</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #f4f7fb; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .card { background: #fff; border-radius: 16px; padding: 32px; max-width: 520px; width: 100%; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+    h1 { font-size: 22px; font-weight: 800; color: #0f172a; margin-bottom: 4px; }
+    p { font-size: 14px; color: #64748b; margin-bottom: 24px; }
+    label { font-size: 13px; font-weight: 600; color: #0f172a; display: block; margin-bottom: 6px; }
+    input[type="file"] { width: 100%; padding: 10px; border: 1.5px dashed #cbd5e1; border-radius: 10px; background: #f8fafc; font-size: 14px; cursor: pointer; margin-bottom: 16px; }
+    .preview { width: 100%; aspect-ratio: 3/4; object-fit: cover; border-radius: 10px; border: 1px solid #e2e8f0; display: none; margin-bottom: 16px; }
+    button { width: 100%; padding: 14px; background: #4f7cff; color: #fff; border: none; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .result-wrap { margin-top: 24px; display: none; }
+    .result-wrap h2 { font-size: 15px; font-weight: 700; color: #0f172a; margin-bottom: 10px; }
+    .images-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .img-label { font-size: 12px; font-weight: 600; color: #94a3b8; text-align: center; margin-bottom: 4px; }
+    .result-img { width: 100%; aspect-ratio: 3/4; object-fit: cover; border-radius: 10px; border: 1px solid #e2e8f0; }
+    .error { margin-top: 16px; padding: 12px; background: #fee2e2; border-radius: 8px; color: #dc2626; font-size: 13px; display: none; word-break: break-all; }
+    .status { margin-top: 12px; font-size: 13px; color: #64748b; text-align: center; min-height: 20px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>IDPhoto AI — API Test</h1>
+    <p>Calls your Supabase edge function → HuggingFace. No CORS issues.</p>
+
+    <label>Upload Your Photo</label>
+    <input type="file" id="imageInput" accept="image/*" onchange="previewImage()" />
+    <img id="previewImg" class="preview" alt="Preview" />
+
+    <button id="generateBtn" onclick="generate()" disabled>✨ Generate ID Photo</button>
+
+    <div class="status" id="status"></div>
+    <div class="error" id="errorBox"></div>
+
+    <div class="result-wrap" id="resultWrap">
+      <h2>Result</h2>
+      <div class="images-row">
+        <div>
+          <div class="img-label">Original</div>
+          <img id="originalImg" class="result-img" />
+        </div>
+        <div>
+          <div class="img-label">Generated</div>
+          <img id="resultImg" class="result-img" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = 'https://mxdjwnbfypwjdzmcpwhp.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14ZGp3bmJmeXB3amR6bWNwd2hwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyNzg3MzQsImV4cCI6MjA5MDg1NDczNH0.IoQLO9uMDN2ADhIpySUYHqE6wdXGo8q8sJV7q93XrTY';
+
+    let selectedFile = null;
+
+    function previewImage() {
+      const input = document.getElementById('imageInput');
+      const preview = document.getElementById('previewImg');
+      selectedFile = input.files[0];
+      if (selectedFile) {
+        preview.src = URL.createObjectURL(selectedFile);
+        preview.style.display = 'block';
+        document.getElementById('generateBtn').disabled = false;
+      }
+    }
+
+    function toBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function generate() {
+      if (!selectedFile) return;
+
+      const btn = document.getElementById('generateBtn');
+      const status = document.getElementById('status');
+      const errorBox = document.getElementById('errorBox');
+
+      btn.disabled = true;
+      btn.textContent = 'Generating...';
+      errorBox.style.display = 'none';
+      document.getElementById('resultWrap').style.display = 'none';
+      status.textContent = '⏳ Converting image...';
+
+      try {
+        const base64 = await toBase64(selectedFile);
+        status.textContent = '⏳ Calling AI... this may take 30-60 seconds';
+
+        const response = await fetch(
+          `${SUPABASE_URL}/functions/v1/generate-id-photo`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            },
+            body: JSON.stringify({
+              image: base64,
+              photoType: 'half',
+              backgroundColor: 'white',
+              aspectRatio: '3:4',
+            }),
+          }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || data.error) {
+          throw new Error(data.error || `HTTP ${response.status}`);
+        }
+
+        document.getElementById('originalImg').src = URL.createObjectURL(selectedFile);
+        document.getElementById('resultImg').src = data.image;
+        document.getElementById('resultWrap').style.display = 'block';
+        status.textContent = '✅ Done!';
+
+      } catch (err) {
+        errorBox.textContent = '❌ ' + err.message;
+        errorBox.style.display = 'block';
+        status.textContent = '';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '✨ Generate ID Photo';
+      }
+    }
+  </script>
+</body>
+</html>
