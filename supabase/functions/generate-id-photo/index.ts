@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
             body: JSON.stringify({
               contents: [{
                 parts: [
-                  { text: 'Describe this person in 1 sentence for an AI image generator. Include: gender, approximate age, skin tone, hair color and style, facial features. Be specific and concise. Example: "young Black male, early 20s, dark skin, short black hair, smiling face"' },
+                  { text: 'Describe this person in detail for an AI image generator. Be very specific about: 1) gender 2) exact age range 3) skin tone (e.g. dark brown, light brown, fair, pale) 4) hair color, length and style 5) face shape 6) any distinctive features. Format: single sentence, comma separated. Example: "young Black male, early 20s, very dark brown skin, short natural black hair, round face, bright smile"' },
                   { inline_data: { mime_type: mimeType, data: base64Data } },
                 ],
               }],
@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
     }
 
     // Step 2: Generate ID photo with FLUX using the person description
-    const prompt = `professional passport ID photo, ${personDescription}, ${frameDesc}, navy blue business suit, white shirt, tie, ${bgDesc} background, front facing, neutral expression, soft studio lighting, sharp focus, photorealistic, high quality, 4k`;
+    const prompt = `professional passport ID photo, ${personDescription}, ${frameDesc}, navy blue business suit, white shirt, tie, ${bgDesc} background, front facing, neutral expression, soft studio lighting, sharp focus, photorealistic, high quality, 4k, same skin tone as described, preserve ethnicity and race`;
     const negativePrompt = 'cartoon, anime, blurry, casual clothes, sunglasses, hat, watermark, text, low quality, deformed, multiple people, crowd';
 
     console.log('Generating with FLUX, prompt:', prompt.substring(0, 100));
