@@ -1,8 +1,8 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Platform, View } from 'react-native';
+import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, spacing, borderRadius, shadows } from '@/constants/theme';
+import { colors, spacing } from '@/constants/theme';
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
@@ -12,34 +12,36 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textTertiary,
+        tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: {
-          height: Platform.select({ ios: insets.bottom + 68, android: insets.bottom + 68, default: 72 }),
+          height: Platform.select({
+            ios: insets.bottom + 60,
+            android: insets.bottom + 60,
+            default: 70,
+          }),
           paddingTop: spacing.sm,
-          paddingBottom: Platform.select({ ios: insets.bottom + 10, android: insets.bottom + 10, default: spacing.sm }),
+          paddingBottom: Platform.select({
+            ios: insets.bottom + spacing.sm,
+            android: insets.bottom + spacing.sm,
+            default: spacing.sm,
+          }),
           paddingHorizontal: spacing.lg,
           backgroundColor: colors.surface,
           borderTopWidth: 1,
-          borderTopColor: colors.borderLight,
-          ...shadows.md,
+          borderTopColor: colors.border,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '700',
-          letterSpacing: 0.2,
-          marginTop: 2,
+          fontSize: 12,
+          fontWeight: '600',
         },
-        tabBarIconStyle: { marginBottom: -2 },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Create',
-          tabBarIcon: ({ color, focused }) => (
-            <View style={focused ? tabStyles.activeIconWrap : null}>
-              <Ionicons name={focused ? 'add-circle' : 'add-circle-outline'} size={26} color={color} />
-            </View>
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="add-circle-outline" size={size} color={color} />
           ),
         }}
       />
@@ -47,37 +49,20 @@ export default function TabsLayout() {
         name="library"
         options={{
           title: 'Library',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'images' : 'images-outline'} size={24} color={color} />
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="images-outline" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="plans"
+        name="profile"
         options={{
-          title: 'Plans',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'sparkles' : 'sparkles-outline'} size={24} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="account"
-        options={{
-          title: 'Account',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'person-circle' : 'person-circle-outline'} size={26} color={color} />
+          title: 'Profile',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-circle-outline" size={size} color={color} />
           ),
         }}
       />
     </Tabs>
   );
 }
-
-const tabStyles = {
-  activeIconWrap: {
-    backgroundColor: colors.primaryLight,
-    borderRadius: borderRadius.full,
-    padding: 2,
-  },
-};

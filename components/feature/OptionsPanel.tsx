@@ -1,116 +1,255 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { OptionButton } from '@/components/ui/OptionButton';
 import { ColorOption } from '@/components/ui/ColorOption';
-import { PhotoType, BackgroundColor, AspectRatio } from '@/services/imageService';
+import { PhotoType, BackgroundColor, AspectRatio, ClothingStyle } from '@/services/imageService';
 import { colors, spacing, typography, borderRadius, shadows } from '@/constants/theme';
 
 interface OptionsPanelProps {
   photoType: PhotoType;
   backgroundColor: BackgroundColor;
   aspectRatio: AspectRatio;
+  clothingStyle: ClothingStyle;
   onPhotoTypeChange: (type: PhotoType) => void;
   onBackgroundColorChange: (color: BackgroundColor) => void;
   onAspectRatioChange: (ratio: AspectRatio) => void;
+  onClothingStyleChange: (style: ClothingStyle) => void;
 }
 
-type SectionProps = {
-  step: number;
-  icon: keyof typeof Ionicons.glyphMap;
-  title: string;
-  children: React.ReactNode;
-};
+const ALL_COLORS: BackgroundColor[] = ['white', 'gray', 'blue', 'red', 'green', 'lightblue'];
 
-function Section({ step, icon, title, children }: SectionProps) {
+interface SectionHeaderProps {
+  step: number;
+  label: string;
+  icon: any;
+  extra?: React.ReactNode;
+}
+
+function SectionHeader({ step, label, icon, extra }: SectionHeaderProps) {
   return (
-    <View style={sectionStyles.card}>
-      <View style={sectionStyles.header}>
-        <View style={sectionStyles.stepBadge}>
-          <Text style={sectionStyles.stepText}>{step}</Text>
-        </View>
-        <Ionicons name={icon} size={16} color={colors.textSecondary} style={sectionStyles.icon} />
-        <Text style={sectionStyles.title}>{title}</Text>
+    <View style={styles.labelContainer}>
+      <View style={styles.stepBadge}>
+        <Text style={styles.stepNumber}>{step}</Text>
       </View>
-      {children}
+      <Ionicons name={icon} size={16} color={colors.primary} />
+      <Text style={styles.label}>{label}</Text>
+      {extra}
     </View>
   );
 }
 
-const sectionStyles = StyleSheet.create({
+export function OptionsPanel({
+  photoType,
+  backgroundColor,
+  aspectRatio,
+  clothingStyle,
+  onPhotoTypeChange,
+  onBackgroundColorChange,
+  onAspectRatioChange,
+  onClothingStyleChange,
+}: OptionsPanelProps) {
+  return (
+    <View style={styles.container}>
+      {/* Photo Type */}
+      <View style={styles.card}>
+        <View style={styles.section}>
+          <SectionHeader step={1} label="Photo Type" icon="body-outline" />
+          <View style={styles.row}>
+            <OptionButton
+              label="Full Body"
+              selected={photoType === 'full'}
+              onPress={() => onPhotoTypeChange('full')}
+              icon="person-outline"
+            />
+            <View style={styles.gap} />
+            <OptionButton
+              label="Half Body"
+              selected={photoType === 'half'}
+              onPress={() => onPhotoTypeChange('half')}
+              icon="person-circle-outline"
+            />
+          </View>
+        </View>
+      </View>
+
+      {/* Clothing Style */}
+      <View style={styles.card}>
+        <View style={styles.section}>
+          <SectionHeader step={2} label="Outfit Style" icon="shirt-outline" />
+          <View style={styles.row}>
+            <OptionButton
+              label="Formal Suit"
+              selected={clothingStyle === 'suit'}
+              onPress={() => onClothingStyleChange('suit')}
+              icon="briefcase-outline"
+            />
+            <View style={styles.gap} />
+            <OptionButton
+              label="Keep Outfit"
+              selected={clothingStyle === 'keep'}
+              onPress={() => onClothingStyleChange('keep')}
+              icon="happy-outline"
+            />
+          </View>
+          <View style={styles.hintBox}>
+            <Ionicons
+              name={clothingStyle === 'suit' ? 'briefcase-outline' : 'happy-outline'}
+              size={13}
+              color={colors.primary}
+            />
+            <Text style={styles.hintText}>
+              {clothingStyle === 'suit'
+                ? 'AI will dress the person in a professional business suit'
+                : 'AI will keep the original outfit from your photo'}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Background Color */}
+      <View style={styles.card}>
+        <View style={styles.section}>
+          <SectionHeader
+            step={3}
+            label="Background Color"
+            icon="color-palette-outline"
+            extra={
+              <View style={[styles.selectedColorDot, { backgroundColor: getColorHex(backgroundColor) }]} />
+            }
+          />
+          <View style={styles.colorOuter}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.colorScroll}
+            >
+              {ALL_COLORS.map(c => (
+                <View key={c} style={styles.colorItem}>
+                  <ColorOption
+                    color={c}
+                    selected={backgroundColor === c}
+                    onPress={() => onBackgroundColorChange(c)}
+                  />
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </View>
+
+      {/* Aspect Ratio */}
+      <View style={styles.card}>
+        <View style={styles.section}>
+          <SectionHeader step={4} label="Aspect Ratio" icon="crop-outline" />
+          <View style={styles.row}>
+            <OptionButton
+              label="4:3  Landscape"
+              selected={aspectRatio === '4:3'}
+              onPress={() => onAspectRatioChange('4:3')}
+              icon="tablet-landscape-outline"
+            />
+            <View style={styles.gap} />
+            <OptionButton
+              label="3:4  Portrait"
+              selected={aspectRatio === '3:4'}
+              onPress={() => onAspectRatioChange('3:4')}
+              icon="phone-portrait-outline"
+            />
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const getColorHex = (color: BackgroundColor): string => {
+  const map: Record<BackgroundColor, string> = {
+    white: '#FFFFFF',
+    gray: '#9CA3AF',
+    blue: '#3B82F6',
+    red: '#EF4444',
+    green: '#10B981',
+    lightblue: '#38BDF8',
+  };
+  return map[color] || '#FFFFFF';
+};
+
+const styles = StyleSheet.create({
+  container: {
+    gap: spacing.lg,
+  },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    padding: spacing.xl,
-    gap: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
     ...shadows.sm,
   },
-  header: {
+  section: {
+    gap: spacing.lg,
+  },
+  labelContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
   },
   stepBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.primary,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stepText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#fff',
-    lineHeight: 14,
+  stepNumber: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 20,
   },
-  icon: { marginLeft: 2 },
-  title: {
+  label: {
     ...typography.bodyMedium,
     color: colors.text,
-    fontWeight: '700',
     flex: 1,
   },
-});
-
-export function OptionsPanel({
-  photoType, backgroundColor, aspectRatio,
-  onPhotoTypeChange, onBackgroundColorChange, onAspectRatioChange,
-}: OptionsPanelProps) {
-  return (
-    <View style={styles.container}>
-      <Section step={1} icon="person-outline" title="Photo Type">
-        <View style={styles.row}>
-          <OptionButton label="Full-body" selected={photoType === 'full'} onPress={() => onPhotoTypeChange('full')} />
-          <View style={styles.gap} />
-          <OptionButton label="Half-body" selected={photoType === 'half'} onPress={() => onPhotoTypeChange('half')} />
-        </View>
-      </Section>
-
-      <Section step={2} icon="color-palette-outline" title="Background Color">
-        <View style={styles.row}>
-          <ColorOption color="white" selected={backgroundColor === 'white'} onPress={() => onBackgroundColorChange('white')} />
-          <View style={styles.gap} />
-          <ColorOption color="gray" selected={backgroundColor === 'gray'} onPress={() => onBackgroundColorChange('gray')} />
-          <View style={styles.gap} />
-          <ColorOption color="blue" selected={backgroundColor === 'blue'} onPress={() => onBackgroundColorChange('blue')} />
-        </View>
-      </Section>
-
-      <Section step={3} icon="crop-outline" title="Aspect Ratio">
-        <View style={styles.row}>
-          <OptionButton label="4:3  Landscape" selected={aspectRatio === '4:3'} onPress={() => onAspectRatioChange('4:3')} />
-          <View style={styles.gap} />
-          <OptionButton label="3:4  Portrait" selected={aspectRatio === '3:4'} onPress={() => onAspectRatioChange('3:4')} />
-        </View>
-      </Section>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: { gap: spacing.lg },
-  row: { flexDirection: 'row', alignItems: 'stretch' },
-  gap: { width: spacing.sm },
+  selectedColorDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  gap: {
+    width: spacing.md,
+  },
+  colorOuter: {
+    minHeight: 100,
+  },
+  colorScroll: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingHorizontal: 2,
+    paddingVertical: 4,
+  },
+  colorItem: {
+    width: 80,
+  },
+  hintBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.primaryLight,
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  hintText: {
+    ...typography.caption,
+    color: colors.primary,
+    lineHeight: 18,
+    flex: 1,
+  },
 });

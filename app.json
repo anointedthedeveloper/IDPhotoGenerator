@@ -1,66 +1,43 @@
 {
   "expo": {
-    "name": "IDPhoto AI",
-    "slug": "idphoto-ai-generator",
+    "name": "PhotoID Studio",
+    "slug": "photoid-studio",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/logo.png",
-    "scheme": "onspaceapp",
-    "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/logo.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#4F7CFF"
-    },
+    "icon": "./assets/images/logo.png",
+    "scheme": "photoidstudio",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "description": "Transform any photo into a professional ID photo with AI. Supports passport, visa, and ID card formats.",
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "online.anobyte.idphoto",
-      "buildNumber": "1"
+      "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/logo.png",
-        "backgroundColor": "#4F7CFF"
+        "foregroundImage": "./assets/images/logo.png",
+        "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
-      "softwareKeyboardLayoutMode": "pan",
-      "permissions": [
-        "android.permission.READ_MEDIA_IMAGES",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.INTERNET"
-      ],
-      "package": "online.anobyte.idphoto",
-      "versionCode": 1
+      "edgeToEdgeEnabled": true
     },
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/images/logo.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/logo.png",
+          "image": "./assets/images/logo.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#4F7CFF"
+          "backgroundColor": "#ffffff"
         }
       ],
       "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
-    },
-    "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "1afedfb5-0ffa-42a4-b7ba-a75ff15a95c9"
-      }
     }
   }
 }

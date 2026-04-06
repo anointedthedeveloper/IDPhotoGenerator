@@ -1,103 +1,234 @@
-import { Text, TouchableOpacity, ActivityIndicator, StyleSheet, View } from 'react-native';
+import { Text, TouchableOpacity, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, typography, shadows } from '@/constants/theme';
+import { useEffect, useRef, useState } from 'react';
+import { Animated } from 'react-native';
 
 interface GenerateButtonProps {
   onPress: () => void;
   loading: boolean;
   disabled?: boolean;
-  remainingFree?: number;
-  cooldownSeconds?: number;
-  isPro?: boolean;
-  canGenerate?: boolean;
 }
 
-export function GenerateButton({ onPress, loading, disabled, remainingFree = 0, cooldownSeconds = 0, isPro = false, canGenerate = true }: GenerateButtonProps) {
-  const isDisabled = disabled || loading || !canGenerate;
-  const inCooldown = cooldownSeconds > 0;
-  const hitLimit = !isPro && remainingFree === 0 && !inCooldown;
+const STEPS = ['Processing', 'Generating', 'Saving'];
+const STEP_ICONS: Array<'scan-outline' | 'sparkles' | 'cloud-upload-outline'> = [
+  'scan-outline',
+  'sparkles',
+  'cloud-upload-outline',
+];
 
-  const getLabel = () => {
-    if (loading) return 'Generating...';
-    if (inCooldown) return `Wait ${cooldownSeconds}s`;
-    if (hitLimit) return 'Upgrade to Pro';
-    return 'Generate ID Photo';
-  };
+export function GenerateButton({ onPress, loading, disabled }: GenerateButtonProps) {
+  const isDisabled = disabled || loading;
+  const dotAnim = useRef(new Animated.Value(0)).current;
+  const [currentStep, setCurrentStep] = useState(0);
 
-  const getIcon = () => {
-    if (loading) return null;
-    if (inCooldown) return 'time-outline';
-    if (hitLimit) return 'lock-closed-outline';
-    return 'sparkles';
-  };
+  useEffect(() => {
+    if (loading) {
+      setCurrentStep(0);
+      const interval = setInterval(() => {
+        setCurrentStep(prev => Math.min(prev + 1, STEPS.length - 1));
+      }, 2500);
+
+      const pulse = Animated.loop(
+        Animated.sequence([
+          Animated.timing(dotAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+          Animated.timing(dotAnim, { toValue: 0.4, duration: 600, useNativeDriver: true }),
+        ])
+      );
+      pulse.start();
+
+      return () => {
+        clearInterval(interval);
+        pulse.stop();
+        dotAnim.setValue(0);
+        setCurrentStep(0);
+      };
+    }
+  }, [loading]);
+
+  if (loading) {
+    return (
+      <View style={styles.loadingWrapper}>
+        <View style={styles.progressCard}>
+          {/* Steps row */}
+          <View style={styles.stepsOuter}>
+            {STEPS.map((step, i) => {
+              const isActive = i === currentStep;
+              const isDone = i < currentStep;
+              return (
+                <View key={step} style={styles.stepGroup}>
+                  <View style={styles.stepItem}>
+                    <View style={[styles.stepDot, isActive && styles.stepDotActive, isDone && styles.stepDotDone]}>
+                      {isDone ? (
+                        <Ionicons name="checkmark" size={12} color={colors.surface} />
+                      ) : (
+                        <Ionicons
+                          name={STEP_ICONS[i]}
+                          size={12}
+                          color={isActive ? colors.surface : colors.textTertiary}
+                        />
+                      )}
+                    </View>
+                    <Text style={[styles.stepLabel, isActive && styles.stepLabelActive, isDone && styles.stepLabelDone]}>
+                      {step}
+                    </Text>
+                  </View>
+                  {i < STEPS.length - 1 && (
+                    <View style={[styles.connector, isDone && styles.connectorDone]} />
+                  )}
+                </View>
+              );
+            })}
+          </View>
+
+          {/* Progress bar */}
+          <View style={styles.progressBarBg}>
+            <Animated.View
+              style={[
+                styles.progressBarFill,
+                {
+                  width: `${((currentStep + 1) / STEPS.length) * 100}%`,
+                  opacity: dotAnim,
+                },
+              ]}
+            />
+          </View>
+
+          <Text style={styles.progressLabel}>{STEPS[currentStep]}...</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
-    <View style={styles.wrapper}>
-      <TouchableOpacity
-        style={[styles.button, isDisabled && styles.buttonDisabled, hitLimit && styles.buttonLocked, inCooldown && styles.buttonCooldown]}
-        onPress={onPress}
-        disabled={isDisabled}
-        activeOpacity={0.9}
-      >
-        {loading ? (
-          <View style={styles.content}>
-            <ActivityIndicator color={colors.surface} size="small" />
-            <Text style={styles.text}>Generating...</Text>
-          </View>
-        ) : (
-          <View style={styles.content}>
-            <Ionicons name={getIcon() as any} size={20} color={colors.surface} />
-            <Text style={styles.text}>{getLabel()}</Text>
-          </View>
-        )}
-      </TouchableOpacity>
-
-      {!isPro && !loading && (
-        <View style={styles.quota}>
-          {inCooldown ? (
-            <View style={styles.quotaRow}>
-              <Ionicons name="time-outline" size={13} color={colors.textTertiary} />
-              <Text style={styles.quotaText}>Cooldown: {cooldownSeconds}s</Text>
-            </View>
-          ) : hitLimit ? (
-            <View style={styles.quotaRow}>
-              <Ionicons name="lock-closed-outline" size={13} color={colors.error} />
-              <Text style={[styles.quotaText, { color: colors.error }]}>Daily limit reached — resets tomorrow</Text>
-            </View>
-          ) : (
-            <View style={styles.quotaRow}>
-              <Ionicons name="images-outline" size={13} color={colors.textTertiary} />
-              <Text style={styles.quotaText}>{remainingFree} free photo{remainingFree !== 1 ? 's' : ''} remaining today</Text>
-            </View>
-          )}
-        </View>
-      )}
-
-      {isPro && !loading && (
-        <View style={styles.quota}>
-          <View style={styles.quotaRow}>
-            <Ionicons name="sparkles" size={13} color={colors.primary} />
-            <Text style={[styles.quotaText, { color: colors.primary }]}>Pro — unlimited generations</Text>
-          </View>
-        </View>
-      )}
-    </View>
+    <TouchableOpacity
+      style={[styles.button, isDisabled && styles.buttonDisabled]}
+      onPress={onPress}
+      disabled={isDisabled}
+      activeOpacity={0.85}
+    >
+      <View style={styles.content}>
+        <Ionicons name="sparkles" size={20} color={isDisabled ? colors.textTertiary : colors.surface} />
+        <Text style={[styles.text, isDisabled && styles.textDisabled]}>Generate ID Photo</Text>
+      </View>
+    </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: { paddingHorizontal: spacing.xl, gap: spacing.sm },
   button: {
-    width: '100%', paddingVertical: spacing.xl,
-    borderRadius: borderRadius.lg, backgroundColor: colors.primary,
-    alignItems: 'center', justifyContent: 'center', ...shadows.md,
+    width: '100%',
+    paddingVertical: spacing.xl,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.md,
   },
-  buttonDisabled: { backgroundColor: colors.border, ...shadows.sm },
-  buttonLocked: { backgroundColor: colors.accent },
-  buttonCooldown: { backgroundColor: colors.textTertiary },
-  content: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  text: { ...typography.button, color: colors.surface, fontSize: 17 },
-  quota: { alignItems: 'center' },
-  quotaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  quotaText: { ...typography.caption, color: colors.textTertiary },
+  buttonDisabled: {
+    backgroundColor: colors.borderLight,
+    ...shadows.sm,
+  },
+  content: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  text: {
+    ...typography.button,
+    color: colors.surface,
+    fontSize: 17,
+  },
+  textDisabled: {
+    color: colors.textTertiary,
+  },
+  loadingWrapper: {
+    width: '100%',
+  },
+  progressCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.xl,
+    gap: spacing.lg,
+    borderWidth: 1.5,
+    borderColor: colors.primaryLight,
+    ...shadows.md,
+    alignItems: 'center',
+  },
+  stepsOuter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  stepGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+  },
+  stepItem: {
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  stepDot: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.borderLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: colors.border,
+  },
+  stepDotActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  stepDotDone: {
+    backgroundColor: colors.success,
+    borderColor: colors.success,
+  },
+  connector: {
+    flex: 1,
+    height: 2,
+    backgroundColor: colors.border,
+    marginHorizontal: spacing.xs,
+    marginBottom: spacing.xl,
+  },
+  connectorDone: {
+    backgroundColor: colors.success,
+  },
+  stepLabel: {
+    ...typography.caption,
+    color: colors.textTertiary,
+    fontWeight: '500',
+    fontSize: 11,
+  },
+  stepLabelActive: {
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  stepLabelDone: {
+    color: colors.success,
+    fontWeight: '600',
+  },
+  progressBarBg: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.borderLight,
+    width: '100%',
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 3,
+    backgroundColor: colors.primary,
+  },
+  progressLabel: {
+    ...typography.bodyMedium,
+    color: colors.primary,
+    textAlign: 'center',
+    fontWeight: '600',
+  },
 });

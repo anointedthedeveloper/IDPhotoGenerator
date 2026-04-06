@@ -6,7 +6,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { image, photoType, backgroundColor, aspectRatio } = await req.json();
+    const { image, photoType, backgroundColor, aspectRatio, clothingStyle } = await req.json();
 
     if (!image) {
       return new Response(
@@ -15,25 +15,29 @@ Deno.serve(async (req) => {
       );
     }
 
-    const systemPrompt = `You are an ID photo generator. Your task is to transform the input image into a professional ID photo with the following requirements:
-
-1. Change the person's wearing to suit a professional ID photo (formal attire).
-2. The proportions of people in the generated image should follow the normal proportions of ID photos.
-3. Photo type: ${photoType === 'full' ? 'Full body - showing the entire person from head to feet, including legs and shoes. The person should be standing straight with their full body visible in the frame' : 'Half body - head and upper torso only, typically from waist up'}.
-4. Background color: ${backgroundColor} (solid, clean background).
-5. Ensure proper lighting, centered composition, and professional appearance.
-6. Keep the person's face clearly visible and well-lit.`;
-
-    const userPrompt = `Transform this photo into a professional ID photo following all the requirements.`;
-
-    console.log('Generating ID photo with settings:', { photoType, backgroundColor, aspectRatio });
-
     const baseUrl = Deno.env.get('ONSPACE_AI_BASE_URL');
     const apiKey = Deno.env.get('ONSPACE_AI_API_KEY');
 
     if (!baseUrl || !apiKey) {
       throw new Error('AI service not configured');
     }
+
+    // Concise, direct prompt for faster generation
+    const clothingNote = clothingStyle === 'suit'
+      ? 'Dress in dark business suit, white shirt, tie.'
+      : 'Keep original clothing.';
+
+    const bgColors: Record<string, string> = {
+      white: '#FFFFFF', gray: '#9CA3AF', blue: '#3B82F6',
+      red: '#EF4444', green: '#10B981', lightblue: '#38BDF8',
+    };
+    const bgHex = bgColors[backgroundColor] || '#FFFFFF';
+
+    const frameNote = photoType === 'full'
+      ? 'Full body head to feet, standing straight.'
+      : 'Half body head to waist, passport style.';
+
+    const prompt = `Professional ID photo. ${frameNote} Solid ${backgroundColor} (${bgHex}) background. ${clothingNote} Face centered, neutral expression, sharp quality, official document style. Keep face identical.`;
 
     const response = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
@@ -44,23 +48,22 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash-image',
         messages: [
-          { role: 'system', content: systemPrompt },
           {
             role: 'user',
             content: [
-              { type: 'text', text: userPrompt },
+              { type: 'text', text: prompt },
               { type: 'image_url', image_url: { url: image } },
             ],
           },
         ],
         modalities: ['image', 'text'],
         image_config: { aspect_ratio: aspectRatio },
+        max_tokens: 512,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('AI API Error:', errorText);
       return new Response(
         JSON.stringify({ error: `AI service error: ${errorText}` }),
         { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -68,7 +71,6 @@ Deno.serve(async (req) => {
     }
 
     const result = await response.json();
-    console.log('AI response received');
 
     const generatedImage = result.choices?.[0]?.message?.images?.[0]?.image_url?.url;
     const description = result.choices?.[0]?.message?.content || '';
@@ -84,7 +86,6 @@ Deno.serve(async (req) => {
       JSON.stringify({ image: generatedImage, description }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-
   } catch (error) {
     console.error('Error:', error);
     return new Response(
